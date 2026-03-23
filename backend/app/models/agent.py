@@ -32,9 +32,11 @@ class Agent(Base):
     system_prompt = Column(Text, nullable=True)
  
     max_iterations = Column(String(10), nullable=True, default="10")
-    temperature_override = Column(String(10), nullable=True)
- 
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
  
     tasks = relationship("Task", back_populates="agent", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Agent id={self.id} name={self.name} status={self.status}>"
