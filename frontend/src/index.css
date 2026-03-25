@@ -1,0 +1,38 @@
+/* PATH: frontend/src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --bg:      #0a0b0f;
+  --bg2:     #111318;
+  --bg3:     #1a1d25;
+  --bd:      #23262f;
+  --bd2:     #2e3240;
+  --text:    #e8eaf0;
+  --muted:   #6b7080;
+  --accent:  #4f8ef7;
+  --accent2: #7c3aed;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --cyan:    #06b6d4;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 10px; }
+
+/* Transitions */
+* { transition-property: color, background-color, border-color, opacity;
+    transition-duration: 120ms; transition-timing-function: ease; }

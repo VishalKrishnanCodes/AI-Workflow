@@ -1,1 +1,1 @@
-# AI Workflow Platform — Backend
+# PATH: backend/app/__init__.py
