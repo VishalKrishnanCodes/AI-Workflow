@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str = "changeme-in-production"
 
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/ai_workflow"
+    DATABASE_URL: str = "postgresql://postgres:Dev123%21%40%23@localhost:5432/ai_workflow"
 
     REDIS_URL: str = "redis://localhost:6379/0"
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"

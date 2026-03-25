@@ -55,12 +55,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def root():
+    return {"message": "AI Workflow API is running"}
 # ── Create DB tables on startup ───────────────────────────────────────────────
 # In production you should use Alembic migrations instead of create_all().
 # But this is fine for development — it creates any tables that don't exist yet.
 @app.on_event("startup")
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
+@app.get("/test")
+def test():
+    return {"message": "Backend is connected successfully 🚀"}
 
 # ── Register routers ──────────────────────────────────────────────────────────
 # Each router adds a group of related endpoints to the app.
