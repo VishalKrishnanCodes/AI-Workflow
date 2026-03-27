@@ -15,10 +15,24 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.models.task_run import TaskRun
+from app.models.task import Task
 from app.schemas.task_run import TaskRunResponse
 
 router = APIRouter(prefix="/task-runs", tags=["Task Run History"])
 
+def _enrich(run: TaskRun, db: Session) -> dict:
+    """
+    Convert a TaskRun ORM row to a dict and attach task_name + cron_expression
+    by joining to the tasks table.  The frontend history page needs these two
+    fields to display the table without making extra requests.
+    """
+    data = {c.name: getattr(run, c.name) for c in run.__table__.columns}
+
+    task = db.query(Task).filter(Task.id == run.task_id).first()
+    data["task_name"]        = task.name            if task else None
+    data["cron_expression"]  = task.cron_expression if task else None
+
+    return data
 
 @router.get("/", response_model=List[TaskRunResponse])
 def list_runs(

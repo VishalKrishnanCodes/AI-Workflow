@@ -22,7 +22,6 @@ from app.schemas.tool import ToolCreate, ToolUpdate, ToolResponse
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
 
-
 @router.get("/", response_model=List[ToolResponse])
 def list_tools(db: Session = Depends(get_db)):
     return db.query(Tool).order_by(Tool.created_at.desc()).all()

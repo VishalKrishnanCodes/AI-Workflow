@@ -1,0 +1,31 @@
+# PATH: agent-runner/Dockerfile.runner
+#
+# This image runs INSIDE a Docker container for each task execution.
+# The Celery worker spawns one container per task run using this image.
+#
+# Build it once from the project root:
+#   docker build -f agent-runner/Dockerfile.runner -t ai-workflow-agent-runner:latest .
+#
+# The container is given these environment variables by the Celery worker:
+#   TASK_ID       → UUID of the task
+#   RUN_ID        → UUID of the task run record
+#   AGENT_ID      → UUID of the agent to execute
+#   API_BASE_URL  → http://backend:8000  (internal Docker network URL)
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+
+COPY agent-runner/requirements-runner.txt .
+RUN pip install --no-cache-dir -r requirements-runner.txt
+
+# Copy the runner script and graph builder
+COPY agent-runner/run_agent.py  .
+COPY backend/app/agent_runner/graph_builder.py .
+COPY backend/app/services/llm_service.py       .
+
+# The runner script is the entrypoint
+CMD ["python", "run_agent.py"]

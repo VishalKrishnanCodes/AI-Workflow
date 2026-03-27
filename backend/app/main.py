@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, SessionLocal
 
 # Import all models so SQLAlchemy knows about them before create_all()
 import app.models  # noqa: F401
@@ -49,11 +49,28 @@ app = FastAPI(
 # In production, replace with your actual frontend domain.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Startup: create tables, then seed default data ────────────────────────────
+@app.on_event("startup")
+def on_startup():
+    # 1. Create all tables that don't exist yet (safe / idempotent)
+    Base.metadata.create_all(bind=engine)
+
+    # 2. Seed default agents, tools, LLM configs if the DB is empty
+    db = SessionLocal()
+    try:
+        from app.core.seed import seed_database
+        seed_database(db)
+    except Exception as exc:
+        print(f"[startup] Seed warning: {exc}")
+    finally:
+        db.close()
+
 
 @app.get("/")
 def root():

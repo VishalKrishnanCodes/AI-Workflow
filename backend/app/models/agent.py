@@ -10,7 +10,7 @@ class AgentStatus(str, enum.Enum):
     active = "active"
     inactive = "inactive"
     draft = "draft"
- 
+
 class Agent(Base):
     __tablename__ = "agents"
  

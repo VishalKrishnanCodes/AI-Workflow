@@ -1,0 +1,135 @@
+# PATH: docker-compose.yml  (project root)
+#
+# Starts the entire stack with one command:
+#   docker compose up --build
+#
+# Services:
+#   postgres  → PostgreSQL database
+#   redis     → Redis (Celery broker + result backend)
+#   backend   → FastAPI API server  (http://localhost:8000)
+#   worker    → Celery worker (same image as backend, different CMD)
+#   frontend  → React dev server    (http://localhost:5173)
+#
+# The agent-runner image is built separately — see agent-runner/Dockerfile.runner
+# Build it once with:
+#   docker build -f agent-runner/Dockerfile.runner -t ai-workflow-agent-runner:latest .
+
+version: "3.9"
+
+networks:
+  # All containers join this network so they can call each other by service name
+  # e.g. the agent-runner container calls http://backend:8000
+  ai_workflow_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai_workflow_postgres
+    restart: unless-stopped
+    networks: [ai_workflow_network]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER:     aiuser
+      POSTGRES_PASSWORD: aipassword
+      POSTGRES_DB:       ai_workflow
+    ports:
+      - "5432:5432"        # exposed so you can connect from your local machine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiuser -d ai_workflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ai_workflow_redis
+    restart: unless-stopped
+    networks: [ai_workflow_network]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── FastAPI backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_workflow_backend
+    restart: unless-stopped
+    networks: [ai_workflow_network]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: ./backend/.env
+    environment:
+      # Override with Docker-internal hostnames
+      DATABASE_URL:          postgresql://aiuser:aipassword@postgres:5432/ai_workflow
+      REDIS_URL:             redis://redis:6379/0
+      CELERY_BROKER_URL:     redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DOCKER_NETWORK:        ai_workflow_network
+      # Allow requests from local frontend dev server
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the Docker socket so the Celery worker can spawn containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── Celery worker ───────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_workflow_worker
+    restart: unless-stopped
+    networks: [ai_workflow_network]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL:          postgresql://aiuser:aipassword@postgres:5432/ai_workflow
+      REDIS_URL:             redis://redis:6379/0
+      CELERY_BROKER_URL:     redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DOCKER_NETWORK:        ai_workflow_network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: celery -A app.celery_worker.celery_app worker --loglevel=info --concurrency=4
+
+  # ── React frontend (dev server) ─────────────────────────────────────────────
+  # For production, build the static files and serve with nginx instead.
+  frontend:
+    image: node:20-alpine
+    container_name: ai_workflow_frontend
+    working_dir: /app
+    networks: [ai_workflow_network]
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules        # anonymous volume so host node_modules don't override
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
