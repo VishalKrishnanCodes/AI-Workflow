@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import { Plus, Play, Zap, Bot, Trash2 } from 'lucide-react'
 import { agentsApi } from '../api/agents'
 import { toolsApi }  from '../api/tools'
+import api from '../api/client'
 import {
   PageHeader, Badge, Btn, Card, CardHeader,
   Modal, Input, Select, Textarea, Toggle, Spinner, Empty,
@@ -32,6 +33,7 @@ const BUILTIN_TOOLS = [
 export default function AgentManagement() {
   const [agents,       setAgents]       = useState([])
   const [tools,        setTools]        = useState([])
+  const [llmConfigs,  setLlmConfigs]   = useState([])
   const [loading,      setLoading]      = useState(true)
   const [showCreate,   setShowCreate]   = useState(false)
   const [selectedAgent,setSelectedAgent]= useState(null)
@@ -50,16 +52,22 @@ export default function AgentManagement() {
   /* ── Load data ── */
   const load = useCallback(async () => {
     try {
-      const [ag, tl] = await Promise.all([agentsApi.list(), toolsApi.list()])
+      const [ag, tl, llms] = await Promise.all([
+        agentsApi.list(),
+        toolsApi.list(),
+        api.get('/llm/'),
+      ])
       setAgents(ag.data)
       // Merge API tools with builtins (deduplicate by name)
       const apiNames = tl.data.map(t => t.name)
       const extras   = BUILTIN_TOOLS.filter(b => !apiNames.includes(b.name))
       setTools([...tl.data, ...extras])
+      setLlmConfigs(llms.data || [])
     } catch {
       // Backend not running — use demo data for the presentation
       setAgents(DEMO_AGENTS)
       setTools([...BUILTIN_TOOLS, ...DEMO_TOOLS])
+      setLlmConfigs([])
     } finally {
       setLoading(false)
     }
@@ -96,7 +104,12 @@ export default function AgentManagement() {
   async function createAgent() {
     if (!form.name.trim()) return toast.error('Agent name is required')
     try {
-      const res = await agentsApi.create(form)
+      // Pydantic expects UUID or null; sending "" can cause 422.
+      const payload = {
+        ...form,
+        llm_config_id: form.llm_config_id ? form.llm_config_id : null,
+      }
+      const res = await agentsApi.create(payload)
       setAgents(prev => [res.data, ...prev])
       toast.success('Agent created')
     } catch {
@@ -347,6 +360,18 @@ export default function AgentManagement() {
             value={form.system_prompt}
             onChange={e => setForm(f => ({ ...f, system_prompt: e.target.value }))}
           />
+
+          {/* LLM picker */}
+          <Select
+            label="LLM Config"
+            value={form.llm_config_id}
+            onChange={e => setForm(f => ({ ...f, llm_config_id: e.target.value }))}
+          >
+            <option value="">No LLM linked</option>
+            {llmConfigs.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </Select>
 
           {/* Tool selection */}
           <div style={{ marginBottom:16 }}>

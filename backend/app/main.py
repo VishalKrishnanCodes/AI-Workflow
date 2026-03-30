@@ -34,6 +34,7 @@ from app.routers.tools     import router as tools_router
 from app.routers.tasks     import router as tasks_router
 from app.routers.task_runs import router as task_runs_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.dashboard import router as workflows_router
 
 # ── Create the FastAPI app ────────────────────────────────────────────────────
 app = FastAPI(
@@ -49,7 +50,8 @@ app = FastAPI(
 # In production, replace with your actual frontend domain.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    #allow_origins=["http://localhost:5173"]
+    allow_origins = settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,6 +82,7 @@ def root():
 # But this is fine for development — it creates any tables that don't exist yet.
 @app.on_event("startup")
 def create_tables():
+    print("DATABASE URL:", settings.DATABASE_URL)
     Base.metadata.create_all(bind=engine)
 
 @app.get("/test")
@@ -95,7 +98,8 @@ app.include_router(tools_router)      # /tools/*
 app.include_router(tasks_router)      # /tasks/*
 app.include_router(task_runs_router)  # /task-runs/*
 app.include_router(dashboard_router)  # /dashboard/*
-
+app.include_router(workflows_router)  # /worflows/*
+ 
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Health"])
 def health_check():
