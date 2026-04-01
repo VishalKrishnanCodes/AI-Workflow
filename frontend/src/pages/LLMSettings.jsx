@@ -5,19 +5,20 @@ import { Plus, CheckCircle, XCircle } from 'lucide-react'
 import api from '../api/client'
 import { PageHeader, Badge, Btn, Card, CardHeader, Modal, Input, Select, Toggle, Spinner, Empty } from '../components/shared/UI'
 
-const PROVIDERS = ['openai','anthropic','groq','ollama','custom']
+const PROVIDERS = ['openai','anthropic','groq','ollama','gemini','custom']
 const MODELS = {
   openai:    ['gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo'],
   anthropic: ['claude-3-5-sonnet-20241022','claude-3-haiku-20240307','claude-3-opus-20240229'],
-  groq:      ['llama-3.1-70b-versatile','mixtral-8x7b-32768','gemma2-9b-it'],
+  groq:      ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama3-8b-8192','llama3-70b-8192','groq/compound','groq/compound-mini'] , // 'mixtral-8x7b-32768' 'gemma2-9b-it'
   ollama:    ['llama3.1','mistral','codellama','phi3'],
+  gemini:    ['Gemini 2.5 Flash','Gemini 2 Flash'],
   custom:    [],
 }
 
 const DEMO_LLMS = [
   { id:'l1', name:'GPT-4o Production', provider:'openai',    model:'gpt-4o',                    is_active:true,  is_default:true,  temperature:0.7, max_tokens:2048 },
   { id:'l2', name:'Claude 3.5 Sonnet', provider:'anthropic', model:'claude-3-5-sonnet-20241022', is_active:true,  is_default:false, temperature:0.7, max_tokens:4096 },
-  { id:'l3', name:'Local Ollama',      provider:'ollama',    model:'llama3.1',                   is_active:false, is_default:false, temperature:0.8, max_tokens:2048, api_base_url:'http://localhost:11434' },
+  { id:'l3', name:'Groq Llama 3.3',    provider:'groq',      model:'llama-3.3-70b-versatile',    is_active:false, is_default:false, temperature:0.8, max_tokens:2048 },
 ]
 
 export default function LLMSettings() {
@@ -25,7 +26,7 @@ export default function LLMSettings() {
   const [loading,    setLoading]    = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [testState,  setTestState]  = useState({})  // { [id]: 'testing'|'ok'|'fail' }
-  const [form,       setForm]       = useState({ name:'', provider:'openai', model:'gpt-4o', api_key:'', api_base_url:'', temperature:'0.7', max_tokens:'2048', is_default:false })
+  const [form,       setForm]       = useState({ name:'', provider:'groq', model:'groq/compoun', api_key:'', api_base_url:'', temperature:'0.7', max_tokens:'2048', is_default:false })
 
   useEffect(() => {
     api.get('/llm/')

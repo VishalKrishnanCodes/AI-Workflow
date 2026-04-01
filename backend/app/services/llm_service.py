@@ -72,6 +72,14 @@ def _build_llm(config: LLMConfig):
             api_key=config.api_key,
             temperature=config.temperature if config.temperature is not None else 0.7,
         )
+    elif provider == "gemini" or provider == "google":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(
+        model=config.model or "gemini-1.5-flash",
+        google_api_key=config.api_key,   # IMPORTANT: use this param name
+        temperature=config.temperature if config.temperature is not None else 0.7,
+        max_output_tokens=config.max_tokens or 2048,
+        )
 
     elif provider in ("ollama", "custom"):
         # Ollama and custom endpoints expose an OpenAI-compatible /v1 API
