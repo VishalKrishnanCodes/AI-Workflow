@@ -10,7 +10,8 @@ const MODELS = {
   openai:    ['gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo'],
   anthropic: ['claude-3-5-sonnet-20241022','claude-3-haiku-20240307','claude-3-opus-20240229'],
   groq:      ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama3-8b-8192','llama3-70b-8192','groq/compound','groq/compound-mini'] , // 'mixtral-8x7b-32768' 'gemma2-9b-it'
-  ollama:    ['llama3.1','mistral','codellama','phi3'],
+  ollama:    ['minimax-m2.7','qwen3.5','ministral-3','devstral-small=2',
+    'gpt-oss:120b' ],
   gemini:    ['Gemini 2.5 Flash','Gemini 2 Flash'],
   custom:    [],
 }
