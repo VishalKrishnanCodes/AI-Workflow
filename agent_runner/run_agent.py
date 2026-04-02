@@ -80,7 +80,17 @@ async def main():
             except Exception as exc:
                 print(f"[runner] Warning: could not load tool {tool_id}: {exc}")
 
-        # 5. Build lightweight model objects from the API response dicts
+        # 5. Load skills
+        skills_data = []
+        for skill_id in (agent_data.get("skill_ids") or []):
+            try:
+                skill = fetch(f"/skills/{skill_id}")
+                skills_data.append(skill)
+                print(f"[runner] Skill loaded: {skill['name']}")
+            except Exception as exc:
+                print(f"[runner] Warning: could not load skill {skill_id}: {exc}")
+
+        # 6. Build lightweight model objects from the API response dicts
         #    (We can't use SQLAlchemy here — no DB connection in the container)
         from types import SimpleNamespace
 
@@ -90,6 +100,7 @@ async def main():
             system_prompt=agent_data.get("system_prompt"),
             workflow_config=agent_data.get("workflow_config", {}),
             tool_ids=agent_data.get("tool_ids", []),
+            skill_ids=agent_data.get("skill_ids", []),
             llm_config_id=agent_data.get("llm_config_id"),
             max_iterations=agent_data.get("max_iterations", "10"),
         )
@@ -122,12 +133,22 @@ async def main():
                 is_enabled=t.get("is_enabled", True),
             ))
 
-        # 6. Build the LangGraph graph
+        skills = []
+        for s in skills_data:
+            skills.append(SimpleNamespace(
+                id=s["id"],
+                name=s["name"],
+                description=s.get("description"),
+                category=s.get("category"),
+                system_instruction=s.get("system_instruction"),
+            ))
+
+        # 7. Build the LangGraph graph
         from graph_builder import build_agent_graph
-        graph = build_agent_graph(agent, llm_config, tools, {})
+        graph = build_agent_graph(agent, llm_config, tools, skills, {})
         print("[runner] LangGraph compiled successfully")
 
-        # 7. Run the graph
+        # 8. Run the graph
         print("[runner] Executing agent...")
         final_output = ""
 

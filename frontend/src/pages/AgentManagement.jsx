@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import { Plus, Play, Zap, Bot, Trash2 } from 'lucide-react'
 import { agentsApi } from '../api/agents'
 import { toolsApi }  from '../api/tools'
+import { skillsApi } from '../api/skills'
 import api from '../api/client'
 import {
   PageHeader, Badge, Btn, Card, CardHeader,
@@ -33,6 +34,7 @@ const BUILTIN_TOOLS = [
 export default function AgentManagement() {
   const [agents,       setAgents]       = useState([])
   const [tools,        setTools]        = useState([])
+  const [skills,       setSkills]       = useState([])
   const [llmConfigs,  setLlmConfigs]   = useState([])
   const [loading,      setLoading]      = useState(true)
   const [showCreate,   setShowCreate]   = useState(false)
@@ -46,15 +48,16 @@ export default function AgentManagement() {
   // Create-agent form
   const [form, setForm] = useState({
     name:'', description:'', system_prompt:'',
-    llm_config_id:'', tool_ids:[],
+    llm_config_id:'', tool_ids:[], skill_ids:[],
   })
 
   /* ── Load data ── */
   const load = useCallback(async () => {
     try {
-      const [ag, tl, llms] = await Promise.all([
+      const [ag, tl, sk, llms] = await Promise.all([
         agentsApi.list(),
         toolsApi.list(),
+        skillsApi.list(),
         api.get('/llm/'),
       ])
       setAgents(ag.data)
@@ -62,11 +65,13 @@ export default function AgentManagement() {
       const apiNames = tl.data.map(t => t.name)
       const extras   = BUILTIN_TOOLS.filter(b => !apiNames.includes(b.name))
       setTools([...tl.data, ...extras])
+      setSkills(sk.data || [])
       setLlmConfigs(llms.data || [])
     } catch {
       // Backend not running — use demo data for the presentation
       setAgents(DEMO_AGENTS)
       setTools([...BUILTIN_TOOLS, ...DEMO_TOOLS])
+      setSkills([])
       setLlmConfigs([])
     } finally {
       setLoading(false)
@@ -119,7 +124,7 @@ export default function AgentManagement() {
       toast.success('Agent created (demo mode)')
     }
     setShowCreate(false)
-    setForm({ name:'', description:'', system_prompt:'', llm_config_id:'', tool_ids:[] })
+    setForm({ name:'', description:'', system_prompt:'', llm_config_id:'', tool_ids:[], skill_ids:[] })
   }
 
   /* ── Dry run ── */
@@ -212,6 +217,20 @@ export default function AgentManagement() {
                         borderRadius:5, padding:'2px 8px', fontSize:11, color:'#06b6d4',
                         fontFamily:'DM Mono,monospace',
                       }}>{t.name}</span>
+                    ) : null
+                  })}
+                </div>
+
+                {/* Skill chips */}
+                <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:10 }}>
+                  {(agent.skill_ids || []).map(sid => {
+                    const s = skills.find(x => x.id === sid)
+                    return s ? (
+                      <span key={sid} style={{
+                        background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.2)',
+                        borderRadius:5, padding:'2px 8px', fontSize:11, color:'#7c3aed',
+                        fontFamily:'DM Mono,monospace',
+                      }}>{s.name}</span>
                     ) : null
                   })}
                 </div>
@@ -405,6 +424,44 @@ export default function AgentManagement() {
                   >
                     {selected && '✓ '}{tool.name}
                     <span style={{ fontSize:10, opacity:.6 }}>({tool.type || tool.tool_type})</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Skill selection */}
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:'block', fontSize:11, color:'#6b7080', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px', fontFamily:'DM Mono,monospace' }}>
+              Skills — click to select
+            </label>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+              {skills.map(skill => {
+                const selected = form.skill_ids.includes(skill.id)
+                return (
+                  <button
+                    key={skill.id}
+                    onClick={() => {
+                      const id = skill.id
+                      setForm(f => ({
+                        ...f,
+                        skill_ids: f.skill_ids.includes(id)
+                          ? f.skill_ids.filter(x => x !== id)
+                          : [...f.skill_ids, id],
+                      }))
+                    }}
+                    style={{
+                      display:'flex', alignItems:'center', gap:6,
+                      background: selected ? 'rgba(124,58,237,.12)' : '#1a1d25',
+                      border: `1px solid ${selected ? 'rgba(124,58,237,.4)' : '#23262f'}`,
+                      borderRadius:7, padding:'5px 12px',
+                      fontSize:12, color: selected ? '#7c3aed' : '#6b7080',
+                      cursor:'pointer', fontFamily:'DM Mono,monospace',
+                      transition:'all .15s',
+                    }}
+                  >
+                    {selected && '✓ '}{skill.name}
+                    <span style={{ fontSize:10, opacity:.6 }}>({skill.category || 'general'})</span>
                   </button>
                 )
               })}

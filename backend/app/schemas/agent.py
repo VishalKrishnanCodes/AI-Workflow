@@ -25,6 +25,7 @@ class AgentCreate(BaseModel):
     workflow_config:    Optional[Dict[str, Any]]= {}
     llm_config_id:      Optional[UUID]          = None
     tool_ids:           Optional[List[str]]     = []
+    skill_ids:          Optional[List[str]]     = []
     max_iterations:     Optional[str]           = "10"
 
 
@@ -35,6 +36,7 @@ class AgentUpdate(BaseModel):
     workflow_config:    Optional[Dict[str, Any]] = None
     llm_config_id:      Optional[UUID]           = None
     tool_ids:           Optional[List[str]]      = None
+    skill_ids:          Optional[List[str]]      = None
     max_iterations:     Optional[str]            = None
     status:             Optional[AgentStatus]    = None
 
@@ -48,6 +50,7 @@ class AgentResponse(BaseModel):
     workflow_config: Optional[Dict[str, Any]] = {}
     llm_config_id:   Optional[UUID]           = None
     tool_ids:        Optional[List[str]]      = []
+    skill_ids:       Optional[List[str]]      = []
     max_iterations:  Optional[str]            = None
     created_at:      datetime
     updated_at:      Optional[datetime]       = None

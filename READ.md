@@ -114,6 +114,147 @@ celery -A app.celery_worker worker --loglevel=info
 
 ---
 
+## 🤖 Using Multiple LLM Providers
+
+The platform supports **multiple LLM providers** so you can switch between them when rate limits are reached or based on your needs.
+
+### Supported LLM Providers
+
+| Provider | Model Examples | Setup |
+|----------|---|---|
+| **OpenAI** | gpt-4o, gpt-4-turbo, gpt-3.5-turbo | Requires API key from https://platform.openai.com/api-keys |
+| **Anthropic** | claude-3-5-sonnet, claude-3-opus, claude-3-haiku | Requires API key from https://console.anthropic.com |
+| **Groq** | mixtral-8x7b-32768, llama2-70b-4096 | Requires API key from https://console.groq.com |
+| **Ollama** | Local LLMs (llama2, mistral, neural-chat) | Run locally without API key |
+| **Custom Endpoint** | Any LLM API endpoint | Provide your own OpenAI-compatible endpoint |
+
+### How to Add a New LLM Config via UI
+
+1. **Open Browser**: http://localhost:5174
+2. **Navigate to**: LLM Settings (top menu)
+3. **Click**: "New LLM Config"
+4. **Fill Form**:
+   - **Name**: e.g., "Claude 3.5 Sonnet"
+   - **Provider**: Select from dropdown
+   - **Model**: Model ID (e.g., `claude-3-5-sonnet-20241022`)
+   - **API Key**: Paste your provider's API key
+   - **Temperature**: 0.0-1.0 (lower = deterministic, higher = creative)
+   - **Max Tokens**: Max output length per response
+   - **Set as Default** (optional): Check if you want this as default for new agents
+
+5. **Test Connection**: Click "Test" to verify API key works
+6. **Save**: Click "Create"
+
+### How to Add via API
+
+```bash
+# Add OpenAI GPT-4o
+curl -X POST http://localhost:8000/llm/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "GPT-4o",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "api_key": "sk-your-actual-key-here",
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "is_default": true
+  }'
+
+# Add Anthropic Claude
+curl -X POST http://localhost:8000/llm/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Claude 3.5 Sonnet",
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-20241022",
+    "api_key": "sk-ant-your-actual-key-here",
+    "temperature": 0.7,
+    "max_tokens": 4096,
+    "is_default": false
+  }'
+
+# Add Groq (free tier, no API key cost)
+curl -X POST http://localhost:8000/llm/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Groq Mixtral",
+    "provider": "groq",
+    "model": "mixtral-8x7b-32768",
+    "api_key": "gsk-your-actual-key-here",
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "is_default": false
+  }'
+```
+
+### Getting API Keys
+
+#### OpenAI
+1. Visit https://platform.openai.com/api-keys
+2. Click "Create new secret key"
+3. Copy and paste into LLM config form
+
+#### Anthropic
+1. Visit https://console.anthropic.com/account/keys
+2. Create new API key
+3. Copy and paste into LLM config form
+
+#### Groq (Recommended - Free Tier)
+1. Visit https://console.groq.com/keys
+2. Create new API key (free tier available!)
+3. Copy and paste into LLM config form
+
+#### Ollama (Local - No API Key Needed)
+```bash
+# Install Ollama from https://ollama.ai
+# Then run:
+ollama run llama2
+# or
+ollama run mistral
+
+# Add to platform:
+curl -X POST http://localhost:8000/llm/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Local Llama2",
+    "provider": "ollama",
+    "model": "llama2",
+    "api_key": "",
+    "api_base_url": "http://localhost:11434",
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "is_default": false
+  }'
+```
+
+### Switching LLM for an Agent
+
+1. **Edit Agent**: Click on an agent card → "Edit" button
+2. **Select LLM**: Choose from "LLM Config" dropdown
+3. **Test**: Use Dry Run panel to test with new LLM
+4. **Save**: Changes auto-save
+
+### Performance Tips
+
+| Provider | Speed | Cost | Quality | Best For |
+|----------|-------|------|---------|----------|
+| Groq (free tier) | ⚡⚡⚡ Fast | Free | Good | Testing, high-volume |
+| Ollama (local) | ⚡⚡ Medium | Free | Good | Private/offline work |
+| Claude (Anthropic) | ⚡⚡ Medium | $$ | Excellent | Complex reasoning |
+| GPT-4o (OpenAI) | ⚡ Slower | $$$ | Excellent | Production-grade |
+
+### Handling Rate Limits
+
+When you hit rate limits on your primary LLM:
+
+1. **Keep Multiple Configs Active**: Have 2-3 LLMs configured
+2. **Rotate in Agent**: Change `llm_config_id` to an alternative
+3. **Monitor Costs**: OpenAI/Anthropic have usage dashboards
+4. **Use Groq Free Tier**: Great backup option with no rate limits
+
+---
+
 ## 📊 Database Schema
 
 ### Core Tables

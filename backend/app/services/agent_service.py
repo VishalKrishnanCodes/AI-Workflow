@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.models.agent import Agent
 from app.models.llm_config import LLMConfig
 from app.models.tool import Tool
+from app.models.skill import Skill
 
 async def run_dry_run(
     agent: Agent,
@@ -28,10 +29,11 @@ async def run_dry_run(
     Steps:
       1. Load the LLMConfig record linked to this agent
       2. Load all enabled Tool records linked to this agent
-      3. Build the LangGraph compiled graph via graph_builder
-      4. Stream events from the graph, collecting each node visit as a "step"
-      5. Extract the final text output from the agent node
-      6. Return output + steps + status
+      3. Load all Skill records linked to this agent
+      4. Build the LangGraph compiled graph via graph_builder
+      5. Stream events from the graph, collecting each node visit as a "step"
+      6. Extract the final text output from the agent node
+      7. Return output + steps + status
 
     Returns dict with keys:
       output  → final text the agent produced
@@ -61,11 +63,20 @@ async def run_dry_run(
                 .all()
             )
 
-        # ── Step 3: Build the LangGraph compiled graph ────────────────────────
-        from app.agent_runner.graph_builder import build_agent_graph
-        graph = build_agent_graph(agent, llm_config, tools, override_params)
+        # ── Step 3: Load linked skills ────────────────────────────────────────
+        skills = []
+        if agent.skill_ids:
+            skills = (
+                db.query(Skill)
+                .filter(Skill.id.in_(agent.skill_ids))
+                .all()
+            )
 
-        # ── Step 4: Stream through graph nodes ────────────────────────────────
+        # ── Step 4: Build the LangGraph compiled graph ────────────────────────
+        from app.agent_runner.graph_builder import build_agent_graph
+        graph = build_agent_graph(agent, llm_config, tools, skills, override_params)
+
+        # ── Step 5: Stream through graph nodes ────────────────────────────────
         # Each event is a dict: { node_name: node_output }
         steps = []
         final_output = ""

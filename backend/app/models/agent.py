@@ -28,6 +28,9 @@ class Agent(Base):
     # Tool IDs this agent can use
     tool_ids = Column(JSON, nullable=True, default=[])
  
+    # Skill IDs this agent has adopted
+    skill_ids = Column(JSON, nullable=True, default=[])
+ 
     # Instructions given to the LLM
     system_prompt = Column(Text, nullable=True)
  

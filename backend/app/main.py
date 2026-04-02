@@ -31,6 +31,7 @@ import app.models  # noqa: F401
 from app.routers.agents    import router as agents_router
 from app.routers.llm       import router as llm_router
 from app.routers.tools     import router as tools_router
+from app.routers.skill     import router as skill_router
 from app.routers.tasks     import router as tasks_router
 from app.routers.task_runs import router as task_runs_router
 from app.routers.dashboard import router as dashboard_router
@@ -95,6 +96,7 @@ def test():
 app.include_router(agents_router)     # /agents/*
 app.include_router(llm_router)        # /llm/*
 app.include_router(tools_router)      # /tools/*
+app.include_router(skill_router)      # /skills/*
 app.include_router(tasks_router)      # /tasks/*
 app.include_router(task_runs_router)  # /task-runs/*
 app.include_router(dashboard_router)  # /dashboard/*

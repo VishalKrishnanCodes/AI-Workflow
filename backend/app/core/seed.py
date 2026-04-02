@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.models.agent     import Agent,     AgentStatus
 from app.models.llm_config import LLMConfig
 from app.models.tool      import Tool,      ToolType
+from app.models.skill     import Skill
 from app.models.task      import Task,      TriggerType, TaskStatus
 from app.core.config      import settings
 
@@ -54,7 +55,7 @@ def seed_database(db: Session) -> None:
         )
         db.add_all([llm_gpt4, llm_claude])
         db.flush()
-        print("[seed] ✓ LLM configs seeded")
+        print("[seed] [OK] LLM configs seeded")
 
     # ── 2. Seed tools ─────────────────────────────────────────────────────────
     if db.query(Tool).count() == 0:
@@ -83,7 +84,107 @@ def seed_database(db: Session) -> None:
         ]
         db.add_all(tools)
         db.flush()
-        print("[seed] ✓ Tools seeded")
+        print("[seed] [OK] Tools seeded")
+
+    # ── 2.5 Seed skills ──────────────────────────────────────────────────────
+    if db.query(Skill).count() == 0:
+        skills = [
+            Skill(
+                id=uuid.UUID("00000000-0000-0000-0004-000000000001"),
+                name="Follow Up Suggester",
+                category="analysis",
+                description="Automatically suggests clarifying and follow-up questions after answering.",
+                system_instruction=(
+                    "After providing your response, always suggest 2-3 thoughtful follow-up questions "
+                    "that the user might want to explore further. Format them as:\n\n"
+                    "**Follow-up Questions:**\n- Question 1\n- Question 2\n- Question 3"
+                ),
+                is_enabled=True,
+            ),
+            Skill(
+                id=uuid.UUID("00000000-0000-0000-0004-000000000002"),
+                name="Code Explainer",
+                category="code",
+                description="Explains code in detail, breaking down logic and reasoning.",
+                system_instruction=(
+                    "When explaining code, always:\n"
+                    "1. Start with the overall purpose\n"
+                    "2. Break down each section line-by-line\n"
+                    "3. Explain the logic and reasoning behind each step\n"
+                    "4. Provide examples of inputs and expected outputs\n"
+                    "5. Highlight any edge cases or potential issues"
+                ),
+                is_enabled=True,
+            ),
+            Skill(
+                id=uuid.UUID("00000000-0000-0000-0004-000000000003"),
+                name="Bug Hunter",
+                category="code",
+                description="Proactively identifies bugs, security issues, and edge cases.",
+                system_instruction=(
+                    "You are a meticulous bug hunter. When analyzing code:\n"
+                    "1. Look for potential null pointer / type errors\n"
+                    "2. Check for security vulnerabilities (SQL injection, XSS, etc.)\n"
+                    "3. Identify off-by-one errors and boundary condition issues\n"
+                    "4. Look for race conditions and concurrency problems\n"
+                    "5. Check for performance bottlenecks\n"
+                    "Always provide concrete, actionable fixes."
+                ),
+                is_enabled=True,
+            ),
+            Skill(
+                id=uuid.UUID("00000000-0000-0000-0004-000000000004"),
+                name="Database Expert",
+                category="data",
+                description="Provides expert advice on database design, indexing, and optimization.",
+                system_instruction=(
+                    "You are a database architecture expert. When discussing databases:\n"
+                    "1. Consider normalization vs. denormalization trade-offs\n"
+                    "2. Recommend appropriate indexes for query performance\n"
+                    "3. Discuss schema design patterns and best practices\n"
+                    "4. Suggest optimization strategies for slow queries\n"
+                    "5. Consider scalability and sharding strategies\n"
+                    "Always explain your reasoning with specific examples."
+                ),
+                is_enabled=True,
+            ),
+            Skill(
+                id=uuid.UUID("00000000-0000-0000-0004-000000000005"),
+                name="Devils Advocate",
+                category="reasoning",
+                description="Always considers the opposite view and challenges assumptions.",
+                system_instruction=(
+                    "You are a critical thinking expert who always considers multiple perspectives. "
+                    "When responding:\n"
+                    "1. First, present the proposed idea or solution\n"
+                    "2. Then, systematically explore potential weaknesses and downsides\n"
+                    "3. Consider the opposite viewpoint in detail\n"
+                    "4. Identify hidden assumptions that might not hold\n"
+                    "5. Suggest alternative approaches that address the weaknesses\n"
+                    "This helps arrive at more robust conclusions."
+                ),
+                is_enabled=True,
+            ),
+            Skill(
+                id=uuid.UUID("00000000-0000-0000-0004-000000000006"),
+                name="Step-by-Step Reasoner",
+                category="reasoning",
+                description="Breaks down problems systematically and reasons through each step.",
+                system_instruction=(
+                    "Always approach problems with a structured, step-by-step methodology:\n"
+                    "1. **Understand**: Clearly restate the problem in your own words\n"
+                    "2. **Decompose**: Break the problem into smaller, manageable sub-problems\n"
+                    "3. **Reason**: Work through each step logically, showing your work\n"
+                    "4. **Verify**: Check each step's correctness before proceeding\n"
+                    "5. **Synthesize**: Combine results to reach the final conclusion\n"
+                    "Always show your reasoning chain, not just the answer."
+                ),
+                is_enabled=True,
+            ),
+        ]
+        db.add_all(skills)
+        db.flush()
+        print("[seed] [OK] Skills seeded")
 
     # ── 3. Seed agents ────────────────────────────────────────────────────────
     if db.query(Agent).count() == 0:
@@ -140,7 +241,7 @@ def seed_database(db: Session) -> None:
 
         db.add_all([research_agent, code_review_agent, data_analyst_agent])
         db.flush()
-        print("[seed] ✓ Agents seeded")
+        print("[seed] [OK] Agents seeded")
 
     # ── 4. Seed example tasks ─────────────────────────────────────────────────
     if db.query(Task).count() == 0:
@@ -183,7 +284,7 @@ def seed_database(db: Session) -> None:
         ]
         db.add_all(tasks)
         db.flush()
-        print("[seed] ✓ Tasks seeded")
+        print("[seed] [OK] Tasks seeded")
 
     db.commit()
     print("[seed] Database ready")
