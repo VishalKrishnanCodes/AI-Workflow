@@ -11,7 +11,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, Play, Zap, Bot, Trash2 } from 'lucide-react'
+import { Plus, Play, Zap, Bot, Trash2, Edit } from 'lucide-react'
 import { agentsApi } from '../api/agents'
 import { toolsApi }  from '../api/tools'
 import { skillsApi } from '../api/skills'
@@ -25,11 +25,7 @@ import {
 const STATUS_COLOR = { active:'green', inactive:'gray', draft:'amber' }
 
 /* ── Built-in tools always available for demo ── */
-const BUILTIN_TOOLS = [
-  { id:'builtin-web',  name:'web_search',  type:'builtin', description:'DuckDuckGo web search' },
-  { id:'builtin-wiki', name:'wikipedia',   type:'builtin', description:'Wikipedia lookup' },
-  { id:'builtin-py',   name:'python_repl', type:'builtin', description:'Python code execution' },
-]
+// For production we only show backend-provided tools; no hardcoded builtin tools.
 
 export default function AgentManagement() {
   const [agents,       setAgents]       = useState([])
@@ -38,6 +34,7 @@ export default function AgentManagement() {
   const [llmConfigs,  setLlmConfigs]   = useState([])
   const [loading,      setLoading]      = useState(true)
   const [showCreate,   setShowCreate]   = useState(false)
+  const [editId,       setEditId]       = useState(null)
   const [selectedAgent,setSelectedAgent]= useState(null)
 
   // Dry-run state
@@ -47,9 +44,17 @@ export default function AgentManagement() {
 
   // Create-agent form
   const [form, setForm] = useState({
-    name:'', description:'', system_prompt:'',
+    name:'', description:'', system_prompt:'', domain:'',
     llm_config_id:'', tool_ids:[], skill_ids:[],
   })
+  const [domainSelection, setDomainSelection] = useState('')
+  const [customDomain, setCustomDomain] = useState('')
+
+  const getDomainOptions = () => {
+    const builtin = ['General','Research','Sales','Support','Engineering','Finance','Technical','Ops']
+    const existing = [...new Set(agents.map(a => (a.domain || '').trim()).filter(Boolean))]
+    return [...new Set([...builtin, ...existing])]
+  }
 
   /* ── Load data ── */
   const load = useCallback(async () => {
@@ -61,18 +66,17 @@ export default function AgentManagement() {
         api.get('/llm/'),
       ])
       setAgents(ag.data)
-      // Merge API tools with builtins (deduplicate by name)
-      const apiNames = tl.data.map(t => t.name)
-      const extras   = BUILTIN_TOOLS.filter(b => !apiNames.includes(b.name))
-      setTools([...tl.data, ...extras])
+      setTools(tl.data)
       setSkills(sk.data || [])
       setLlmConfigs(llms.data || [])
-    } catch {
-      // Backend not running — use demo data for the presentation
-      setAgents(DEMO_AGENTS)
-      setTools([...BUILTIN_TOOLS, ...DEMO_TOOLS])
+    } catch (error) {
+      // Backend error, keep arrays empty and show error state
+      console.error('Failed to load agents/tools/skills/llms', error)
+      setAgents([])
+      setTools([])
       setSkills([])
       setLlmConfigs([])
+      toast.error('Unable to load data from backend; please check backend status.')
     } finally {
       setLoading(false)
     }
@@ -105,26 +109,72 @@ export default function AgentManagement() {
     toast.success('Agent deleted')
   }
 
-  /* ── Create agent ── */
+  /* ── Create/Update agent ── */
   async function createAgent() {
     if (!form.name.trim()) return toast.error('Agent name is required')
+
+    const finalDomain = domainSelection === '__custom__'
+      ? customDomain.trim()
+      : domainSelection || ''
+
     try {
-      // Pydantic expects UUID or null; sending "" can cause 422.
       const payload = {
         ...form,
+        domain: finalDomain,
         llm_config_id: form.llm_config_id ? form.llm_config_id : null,
       }
-      const res = await agentsApi.create(payload)
-      setAgents(prev => [res.data, ...prev])
-      toast.success('Agent created')
-    } catch {
-      // Demo mode — add locally
-      const mock = { id: `a${Date.now()}`, ...form, status:'draft', created_at: new Date().toISOString() }
-      setAgents(prev => [mock, ...prev])
-      toast.success('Agent created (demo mode)')
+      if (editId) {
+        // Update existing
+        const res = await agentsApi.update(editId, payload)
+        setAgents(prev => prev.map(a => a.id === editId ? res.data : a))
+        if (selectedAgent?.id === editId) setSelectedAgent(res.data)
+        toast.success('Agent updated')
+      } else {
+        // Create new
+        const res = await agentsApi.create(payload)
+        setAgents(prev => [res.data, ...prev])
+        toast.success('Agent created')
+      }
+    } catch (error) {
+      console.error('Operation failed', error)
+      toast.error('Operation failed; please try again.')
     }
+    closeCreateModal()
+  }
+
+  function openEdit(agent) {
+    setEditId(agent.id)
+    setForm({
+      name: agent.name || '',
+      description: agent.description || '',
+      system_prompt: agent.system_prompt || '',
+      domain: agent.domain || '',
+      llm_config_id: agent.llm_config_id || '',
+      tool_ids: agent.tool_ids || [],
+      skill_ids: agent.skill_ids || [],
+    })
+
+    const options = getDomainOptions()
+    if (agent.domain && options.includes(agent.domain)) {
+      setDomainSelection(agent.domain)
+      setCustomDomain('')
+    } else if (agent.domain) {
+      setDomainSelection('__custom__')
+      setCustomDomain(agent.domain)
+    } else {
+      setDomainSelection('')
+      setCustomDomain('')
+    }
+
+    setShowCreate(true)
+  }
+
+  function closeCreateModal() {
     setShowCreate(false)
-    setForm({ name:'', description:'', system_prompt:'', llm_config_id:'', tool_ids:[], skill_ids:[] })
+    setEditId(null)
+    setForm({ name:'', description:'', system_prompt:'', domain:'', llm_config_id:'', tool_ids:[], skill_ids:[] })
+    setDomainSelection('')
+    setCustomDomain('')
   }
 
   /* ── Dry run ── */
@@ -136,16 +186,27 @@ export default function AgentManagement() {
     try {
       const res = await agentsApi.dryRun(selectedAgent.id, { input_prompt: prompt })
       setDryResult(res.data)
-    } catch {
-      // Demo simulation
-      await new Promise(r => setTimeout(r, 1800))
-      setDryResult(simulateDryRun(selectedAgent, prompt))
+    } catch (error) {
+      console.error('Dry run failed', error)
+      toast.error('Dry run failed; check backend and agent configuration.')
     } finally {
       setDryRunning(false)
     }
   }
 
-  const allTools = tools.length ? tools : BUILTIN_TOOLS
+  const allTools = tools
+  const groupedAgents = agents.reduce((acc, agent) => {
+    const domain = (agent.domain || '').trim() || 'Uncategorized'
+    if (!acc[domain]) acc[domain] = []
+    acc[domain].push(agent)
+    return acc
+  }, {})
+
+  const sortedDomains = Object.keys(groupedAgents).sort((a, b) => {
+    if (a === 'Uncategorized') return 1
+    if (b === 'Uncategorized') return -1
+    return a.localeCompare(b)
+  })
 
   return (
     <div>
@@ -165,79 +226,90 @@ export default function AgentManagement() {
         ) : agents.length === 0 ? (
           <Empty icon="🤖" message="No agents yet — create your first one" />
         ) : (
-          /* ── Agent grid ── */
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14, marginBottom:24 }}>
-            {agents.map(agent => (
-              <div
-                key={agent.id}
-                onClick={() => { setSelectedAgent(agent); setDryResult(null) }}
-                style={{
-                  background: selectedAgent?.id === agent.id ? 'rgba(79,142,247,.06)' : '#111318',
-                  border: `1px solid ${selectedAgent?.id === agent.id ? 'rgba(79,142,247,.4)' : '#23262f'}`,
-                  borderRadius:14, padding:18, cursor:'pointer',
-                  transition:'all .2s',
-                }}
-              >
-                {/* Header row */}
-                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
-                  <div style={{
-                    width:40, height:40,
-                    background:'linear-gradient(135deg,rgba(79,142,247,.2),rgba(124,58,237,.2))',
-                    borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
-                    fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:16, color:'#4f8ef7',
-                  }}>
-                    {agent.name[0]}
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }} onClick={e => e.stopPropagation()}>
-                    <Toggle
-                      checked={agent.status === 'active'}
-                      onChange={() => toggleAgent(agent.id)}
-                    />
-                    <button onClick={() => deleteAgent(agent.id)}
-                      style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
+          /* ── Agent grid by domain ── */
+          <div style={{ display:'flex', flexDirection:'column', gap:20, marginBottom:24 }}>
+            {sortedDomains.map(domain => (
+              <div key={domain}>
+                <div style={{ marginBottom:8, fontSize:14, fontWeight:700, color:'#4f8ef7' }}>{domain}</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14 }}>
+                  {groupedAgents[domain].map(agent => (
+                    <div
+                      key={agent.id}
+                      onClick={() => { setSelectedAgent(agent); setDryResult(null) }}
+                      style={{
+                        background: selectedAgent?.id === agent.id ? 'rgba(79,142,247,.06)' : '#111318',
+                        border: `1px solid ${selectedAgent?.id === agent.id ? 'rgba(79,142,247,.4)' : '#23262f'}`,
+                        borderRadius:14, padding:18, cursor:'pointer',
+                        transition:'all .2s',
+                      }}
+                    >
+                      {/* Header row */}
+                      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
+                        <div style={{
+                          width:40, height:40,
+                          background:'linear-gradient(135deg,rgba(79,142,247,.2),rgba(124,58,237,.2))',
+                          borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+                          fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:16, color:'#4f8ef7',
+                        }}>
+                          {agent.name[0]}
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }} onClick={e => e.stopPropagation()}>
+                          <Toggle
+                            checked={agent.status === 'active'}
+                            onChange={() => toggleAgent(agent.id)}
+                          />
+                          <button onClick={() => openEdit(agent)}
+                            style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}>
+                            <Edit size={13} />
+                          </button>
+                          <button onClick={() => deleteAgent(agent.id)}
+                            style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
 
-                <div style={{ fontFamily:'Syne,sans-serif', fontSize:15, fontWeight:700, marginBottom:4 }}>
-                  {agent.name}
-                </div>
-                <div style={{ fontSize:12, color:'#6b7080', lineHeight:1.5, marginBottom:12 }}>
-                  {agent.description || 'No description'}
-                </div>
+                      <div style={{ fontFamily:'Syne,sans-serif', fontSize:15, fontWeight:700, marginBottom:4 }}>
+                        {agent.name}
+                      </div>
+                      <div style={{ fontSize:12, color:'#6b7080', lineHeight:1.5, marginBottom:12 }}>
+                        {agent.description || 'No description'}
+                      </div>
 
-                {/* Tool chips */}
-                <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:10 }}>
-                  {(agent.tool_ids || []).map(tid => {
-                    const t = allTools.find(x => x.id === tid || x.name === tid)
-                    return t ? (
-                      <span key={tid} style={{
-                        background:'rgba(6,182,212,.08)', border:'1px solid rgba(6,182,212,.2)',
-                        borderRadius:5, padding:'2px 8px', fontSize:11, color:'#06b6d4',
-                        fontFamily:'DM Mono,monospace',
-                      }}>{t.name}</span>
-                    ) : null
-                  })}
-                </div>
+                      {/* Tool chips */}
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:10 }}>
+                        {(agent.tool_ids || []).map(tid => {
+                          const t = allTools.find(x => x.id === tid || x.name === tid)
+                          return t ? (
+                            <span key={tid} style={{
+                              background:'rgba(6,182,212,.08)', border:'1px solid rgba(6,182,212,.2)',
+                              borderRadius:5, padding:'2px 8px', fontSize:11, color:'#06b6d4',
+                              fontFamily:'DM Mono,monospace',
+                            }}>{t.name}</span>
+                          ) : null
+                        })}
+                      </div>
 
-                {/* Skill chips */}
-                <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:10 }}>
-                  {(agent.skill_ids || []).map(sid => {
-                    const s = skills.find(x => x.id === sid)
-                    return s ? (
-                      <span key={sid} style={{
-                        background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.2)',
-                        borderRadius:5, padding:'2px 8px', fontSize:11, color:'#7c3aed',
-                        fontFamily:'DM Mono,monospace',
-                      }}>{s.name}</span>
-                    ) : null
-                  })}
-                </div>
+                      {/* Skill chips */}
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:10 }}>
+                        {(agent.skill_ids || []).map(sid => {
+                          const s = skills.find(x => x.id === sid)
+                          return s ? (
+                            <span key={sid} style={{
+                              background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.2)',
+                              borderRadius:5, padding:'2px 8px', fontSize:11, color:'#7c3aed',
+                              fontFamily:'DM Mono,monospace',
+                            }}>{s.name}</span>
+                          ) : null
+                        })}
+                      </div>
 
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <Badge color={STATUS_COLOR[agent.status] || 'gray'}>{agent.status}</Badge>
-                  {agent.llm_config_id && <Badge color="purple">LLM linked</Badge>}
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <Badge color={STATUS_COLOR[agent.status] || 'gray'}>{agent.status}</Badge>
+                        {agent.llm_config_id && <Badge color="purple">LLM linked</Badge>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -350,13 +422,13 @@ export default function AgentManagement() {
       {/* ── Create Agent Modal ── */}
       {showCreate && (
         <Modal
-          title="Create Agent"
-          onClose={() => setShowCreate(false)}
+          title={editId ? 'Edit Agent' : 'Create Agent'}
+          onClose={closeCreateModal}
           width={560}
           footer={
             <>
-              <Btn variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Btn>
-              <Btn onClick={createAgent}>Create Agent</Btn>
+              <Btn variant="ghost" onClick={closeCreateModal}>Cancel</Btn>
+              <Btn onClick={createAgent}>{editId ? 'Save Changes' : 'Create Agent'}</Btn>
             </>
           }
         >
@@ -372,6 +444,39 @@ export default function AgentManagement() {
             value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
           />
+          <Select
+            label="Domain"
+            value={domainSelection || ''}
+            onChange={e => {
+              const val = e.target.value
+              setDomainSelection(val)
+              if (val === '__custom__') {
+                setForm(f => ({ ...f, domain: '' }))
+              } else {
+                setForm(f => ({ ...f, domain: val }))
+                setCustomDomain('')
+              }
+            }}
+          >
+            <option value="">(none)</option>
+            {getDomainOptions().map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+            <option value="__custom__">Custom...</option>
+          </Select>
+
+          {domainSelection === '__custom__' && (
+            <Input
+              label="Custom domain"
+              placeholder="Type a new domain"
+              value={customDomain}
+              onChange={e => {
+                setCustomDomain(e.target.value)
+                setForm(f => ({ ...f, domain: e.target.value }))
+              }}
+            />
+          )}
+
           <Textarea
             label="System Prompt"
             placeholder="You are a helpful assistant that..."
@@ -477,46 +582,3 @@ export default function AgentManagement() {
   )
 }
 
-/* ── Demo data (when backend is offline) ── */
-const DEMO_AGENTS = [
-  { id:'a1', name:'Research Agent', description:'Searches the web and Wikipedia to answer questions with cited sources.', status:'active', tool_ids:['builtin-web','builtin-wiki'], llm_config_id:'l1', created_at:'2025-01-10' },
-  { id:'a2', name:'Code Review Agent', description:'Analyses code for bugs, security issues and style problems using Python.', status:'active', tool_ids:['builtin-py'], llm_config_id:'l2', created_at:'2025-01-12' },
-  { id:'a3', name:'Data Analyst Agent', description:'Runs Python to analyse datasets and produce insights and visualisations.', status:'inactive', tool_ids:['builtin-py','builtin-web'], llm_config_id:'l1', created_at:'2025-01-14' },
-]
-const DEMO_TOOLS = [
-  { id:'t4', name:'CRM Lookup',   tool_type:'api',    description:'Fetch customer records by email.', is_enabled:false },
-  { id:'t5', name:'Slack Notify', tool_type:'api',    description:'Send messages to Slack channels.', is_enabled:true  },
-]
-
-function simulateDryRun(agent, prompt) {
-  const tools = agent.tool_ids || []
-  const steps = [
-    { node:'agent', output:`Received prompt. Planning tool usage for: "${prompt.slice(0,60)}..."` },
-  ]
-  if (tools.some(t => String(t).includes('web') || String(t).includes('search'))) {
-    steps.push({ node:'tools', output:`web_search("${prompt.slice(0,40)}")  →  Found 5 relevant results from DuckDuckGo` })
-    steps.push({ node:'agent', output:`Analysing search results. Composing final answer with citations.` })
-  }
-  if (tools.some(t => String(t).includes('wiki'))) {
-    steps.push({ node:'tools', output:`wikipedia("${prompt.slice(0,30)}")  →  Retrieved article summary (1,240 words)` })
-    steps.push({ node:'agent', output:`Cross-referencing Wikipedia content with web search results.` })
-  }
-  if (tools.some(t => String(t).includes('python'))) {
-    steps.push({ node:'tools', output:`python_repl("import datetime; print(datetime.date.today())")  →  2025-01-15` })
-    steps.push({ node:'agent', output:`Code executed successfully. Including result in response.` })
-  }
-
-  const outputs = {
-    'Research Agent':     `Based on my research into "${prompt}":\n\n1. According to recent web sources, this topic has seen significant developments in 2024-2025.\n2. Wikipedia confirms the foundational concepts: the field traces its roots to early theoretical work.\n3. Current consensus suggests three main approaches are gaining traction.\n\nSources: DuckDuckGo search results + Wikipedia article retrieved 2025-01-15.`,
-    'Code Review Agent':  `Code Review Complete for: "${prompt}"\n\n✅ No critical security vulnerabilities detected\n⚠️  2 style issues found:\n   - Line 14: Variable name 'x' is too generic — use a descriptive name\n   - Line 28: Missing error handling for edge case\n\n💡 Suggestion: Extract the repeated logic into a helper function for better readability.`,
-    'Data Analyst Agent': `Analysis of "${prompt}":\n\nRan Python analysis pipeline:\n>>> import pandas as pd\n>>> df.describe()\ncount: 1,245 rows\nmean:  42.3\nstd:   8.7\n\nKey Insight: There is a statistically significant trend (p < 0.05) in the data. Recommend further investigation of the Q3 spike.`,
-  }
-
-  return {
-    output: outputs[agent.name] || `Completed task: "${prompt}"\n\nAgent executed successfully using ${tools.length} tool(s). The workflow ran through ${steps.length} steps and produced a response.`,
-    steps,
-    duration_ms: 1200 + Math.floor(Math.random() * 800),
-    status: 'success',
-    error: null,
-  }
-}

@@ -17,7 +17,7 @@ from typing import List
 from uuid import UUID
 
 from app.core.database import get_db
-from app.models.tool import Tool
+from app.models.tool import Tool, ToolType
 from app.schemas.tool import ToolCreate, ToolUpdate, ToolResponse
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
@@ -74,3 +74,33 @@ def toggle_tool(tool_id: UUID, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(tool)
     return tool
+
+
+@router.post("/{tool_id}/test")
+def test_tool(tool_id: UUID, db: Session = Depends(get_db)):
+    """Test if a tool executes without errors."""
+    tool = db.query(Tool).filter(Tool.id == tool_id).first()
+    if not tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+
+    try:
+        if tool.tool_type == ToolType.api:
+            import requests
+            if not tool.endpoint_url:
+                raise HTTPException(status_code=400, detail="Tool endpoint_url is empty")
+            resp = requests.request(tool.http_method or "POST", tool.endpoint_url, timeout=5, json={"test": True})
+            return {"status": "ok", "code": resp.status_code, "body": resp.text[:500]}
+
+        if tool.tool_type in (ToolType.custom, ToolType.langchain):
+            # Attempt to compile custom tool code (does not execute potentially unsafe runtime logic)
+            if not tool.source_code:
+                raise HTTPException(status_code=400, detail="Custom tool source_code is empty")
+            compile(tool.source_code, '<string>', 'exec')
+            return {"status": "ok", "message": "Source code compiled successfully"}
+
+        return {"status": "ok", "message": "Tool is configured, no runtime check performed"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

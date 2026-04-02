@@ -29,62 +29,11 @@ def seed_database(db: Session) -> None:
     Safe to call on every app startup — skips if data already exists.
     """
 
-    # ── 1. Seed LLM configs ───────────────────────────────────────────────────
-    if db.query(LLMConfig).count() == 0:
-        llm_gpt4 = LLMConfig(
-            id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
-            name="GPT-4o (add your key in LLM Settings)",
-            provider="openai",
-            model="gpt-4o",
-            api_key="",          # user must fill this in via the UI
-            temperature=0.7,
-            max_tokens=2048,
-            is_active=True,
-            is_default=True,
-        )
-        llm_claude = LLMConfig(
-            id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
-            name="Claude 3.5 Sonnet (add your key in LLM Settings)",
-            provider="anthropic",
-            model="claude-3-5-sonnet-20241022",
-            api_key="",
-            temperature=0.7,
-            max_tokens=4096,
-            is_active=True,
-            is_default=False,
-        )
-        db.add_all([llm_gpt4, llm_claude])
-        db.flush()
-        print("[seed] [OK] LLM configs seeded")
+    # ── 1. Seed LLM configs and tools ─────────────────────────────────────────
+    # Hardcoded demo LLMs and tools are intentionally disabled. Create LLM and tool
+    # entries manually via the UI or API for production behavior.
+    # (If you want automatic demo data in the future, enable seeding code here.)
 
-    # ── 2. Seed tools ─────────────────────────────────────────────────────────
-    if db.query(Tool).count() == 0:
-        tools = [
-            Tool(
-                id=uuid.UUID("00000000-0000-0000-0001-000000000001"),
-                name="web_search",
-                description="Search the web using DuckDuckGo. Use this to find current information, news, or anything not in training data.",
-                tool_type=ToolType.builtin,
-                is_enabled=True,
-            ),
-            Tool(
-                id=uuid.UUID("00000000-0000-0000-0001-000000000002"),
-                name="wikipedia",
-                description="Query Wikipedia for encyclopedic background knowledge on any topic.",
-                tool_type=ToolType.builtin,
-                is_enabled=True,
-            ),
-            Tool(
-                id=uuid.UUID("00000000-0000-0000-0001-000000000003"),
-                name="python_repl",
-                description="Execute Python code. Use for calculations, data processing, parsing, or any task that benefits from code.",
-                tool_type=ToolType.builtin,
-                is_enabled=True,
-            ),
-        ]
-        db.add_all(tools)
-        db.flush()
-        print("[seed] [OK] Tools seeded")
 
     # ── 2.5 Seed skills ──────────────────────────────────────────────────────
     if db.query(Skill).count() == 0:

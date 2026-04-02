@@ -93,7 +93,7 @@ export default function Dashboard() {
                   <div style={{ fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace' }}>{r.duration_seconds}s</div>
                   <Badge color={STATUS_COLOR[r.status]||'gray'}>{r.status}</Badge>
                 </div>
-              ))}
+              ))} 
             </div>
           </Card>
 

@@ -8,4 +8,5 @@ export const toolsApi = {
   update: (id, data)  => api.put(`/tools/${id}`, data),
   delete: (id)        => api.delete(`/tools/${id}`),
   toggle: (id)        => api.patch(`/tools/${id}/toggle`),
+  test:   (id)        => api.post(`/tools/${id}/test`),
 }

@@ -47,22 +47,8 @@ const NODE_TYPES = {
   output: { label: 'Output',    color: C.green,  bg: 'rgba(34,197,94,.1)',   icon: FileText    },
 }
 
-const BUILTIN_TOOLS = [
-  { id: 'b1', name: 'web_search',  tool_type: 'builtin', description: 'DuckDuckGo search',    is_enabled: true },
-  { id: 'b2', name: 'wikipedia',   tool_type: 'builtin', description: 'Wikipedia lookup',      is_enabled: true },
-  { id: 'b3', name: 'python_repl', tool_type: 'builtin', description: 'Python code execution', is_enabled: true },
-]
+// Built-in tools are not added automatically; system uses only DB tools.
 
-const DEMO_AGENTS = [
-  { id: '00000000-0000-0000-0002-000000000001', name: 'Research Agent',      status: 'active' },
-  { id: '00000000-0000-0000-0002-000000000002', name: 'Code Review Agent',   status: 'active' },
-  { id: '00000000-0000-0000-0002-000000000003', name: 'Data Analyst Agent',  status: 'inactive' },
-]
-const DEMO_LLMS = [
-  { id: '00000000-0000-0000-0000-000000000001', name: 'GPT-4o Production',   provider: 'openai',    model: 'gpt-4o',                    is_active: true  },
-  { id: '00000000-0000-0000-0000-000000000002', name: 'Claude 3.5 Sonnet',  provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', is_active: true  },
-  { id: 'local-1',                               name: 'Local Ollama',       provider: 'ollama',    model: 'llama3.1',                  is_active: false },
-]
 
 function uid() { return `n_${Date.now()}_${Math.random().toString(36).slice(2,7)}` }
 
@@ -110,24 +96,21 @@ export default function WorkflowBuilder() {
           agentsApi.list(),
           api.get('/llm/'),
           toolsApi.list(),
-        ])
-        setAgents(ag.data)
-        setLlms(lm.data)
-        const apiNames = tl.data.map(t => t.name)
-        const extras   = BUILTIN_TOOLS.filter(b => !apiNames.includes(b.name))
-        setTools([...extras, ...tl.data])
+        ]);
+        setAgents(ag.data);
+        setLlms(lm.data);
+        setTools(tl.data);
 
         // Pre-select defaults
-        const defaultLlm   = lm.data.find(l => l.is_default) || lm.data[0]
-        const activeAgents = ag.data.filter(a => a.status === 'active')
-        if (defaultLlm)   setPrimaryLlm(String(defaultLlm.id))
-        if (activeAgents[0]) setSelectedAgent(String(activeAgents[0].id))
-      } catch {
-        setAgents(DEMO_AGENTS)
-        setLlms(DEMO_LLMS)
-        setTools(BUILTIN_TOOLS)
-        setPrimaryLlm(DEMO_LLMS[0].id)
-        setSelectedAgent(DEMO_AGENTS[0].id)
+        const defaultLlm = lm.data.find(l => l.is_default) || lm.data[0];
+        const activeAgents = ag.data.filter(a => a.status === 'active');
+        if (defaultLlm) setPrimaryLlm(String(defaultLlm.id));
+        if (activeAgents[0]) setSelectedAgent(String(activeAgents[0].id));
+      } catch (error) {
+        console.error('Worker failed to load agents/llms/tools', error);
+        setAgents([]);
+        setLlms([]);
+        setTools([]);
       } finally {
         setLoading(false)
       }

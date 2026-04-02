@@ -21,7 +21,7 @@ class ToolType(str, enum.Enum):
     custom    = "custom"
     api       = "api"
     langchain = "langchain"
-
+    
 class Tool(Base):
     __tablename__ = "tools"
 

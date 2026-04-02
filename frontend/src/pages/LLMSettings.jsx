@@ -15,23 +15,22 @@ const MODELS = {
   custom:    [],
 }
 
-const DEMO_LLMS = [
-  { id:'l1', name:'GPT-4o Production', provider:'openai',    model:'gpt-4o',                    is_active:true,  is_default:true,  temperature:0.7, max_tokens:2048 },
-  { id:'l2', name:'Claude 3.5 Sonnet', provider:'anthropic', model:'claude-3-5-sonnet-20241022', is_active:true,  is_default:false, temperature:0.7, max_tokens:4096 },
-  { id:'l3', name:'Groq Llama 3.3',    provider:'groq',      model:'llama-3.3-70b-versatile',    is_active:false, is_default:false, temperature:0.8, max_tokens:2048 },
-]
 
 export default function LLMSettings() {
   const [configs,    setConfigs]    = useState([])
   const [loading,    setLoading]    = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [editId,     setEditId]     = useState(null)
   const [testState,  setTestState]  = useState({})  // { [id]: 'testing'|'ok'|'fail' }
-  const [form,       setForm]       = useState({ name:'', provider:'groq', model:'groq/compoun', api_key:'', api_base_url:'', temperature:'0.7', max_tokens:'2048', is_default:false })
+  const [form,       setForm]       = useState({ name:'', provider:'groq', model:'groq/compound', api_key:'', api_base_url:'', temperature:'0.7', max_tokens:'2048', is_default:false })
 
   useEffect(() => {
     api.get('/llm/')
       .then(r => setConfigs(r.data))
-      .catch(() => setConfigs(DEMO_LLMS))
+      .catch(error => {
+        console.error('Failed to load LLM configs', error)
+        setConfigs([])
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -51,14 +50,38 @@ export default function LLMSettings() {
 
   async function create() {
     if (!form.name || !form.model) return toast.error('Name and model required')
+    const payload = { ...form, temperature: parseFloat(form.temperature), max_tokens: parseInt(form.max_tokens) }
     try {
-      const r = await api.post('/llm/', { ...form, temperature: parseFloat(form.temperature), max_tokens: parseInt(form.max_tokens) })
-      setConfigs(p => [r.data, ...p])
-    } catch {
-      setConfigs(p => [{ id:`l${Date.now()}`, ...form, is_active:true }, ...p])
+      if (editId) {
+        // Update existing
+        const r = await api.put(`/llm/${editId}`, payload)
+        setConfigs(p => p.map(c => c.id === editId ? r.data : c))
+        toast.success('LLM config updated')
+      } else {
+        // Create new
+        const r = await api.post('/llm/', payload)
+        setConfigs(p => [r.data, ...p])
+        toast.success('LLM config created')
+      }
+    } catch (error) {
+      console.error('Operation failed', error)
+      toast.error('Operation failed; check backend')
     }
     setShowCreate(false)
-    toast.success('LLM config saved')
+    setEditId(null)
+    setForm({ name:'', provider:'groq', model:'groq/compound', api_key:'', api_base_url:'', temperature:'0.7', max_tokens:'2048', is_default:false })
+  }
+
+  function openEdit(config) {
+    setEditId(config.id)
+    setForm(config)
+    setShowCreate(true)
+  }
+
+  function closeModal() {
+    setShowCreate(false)
+    setEditId(null)
+    setForm({ name:'', provider:'groq', model:'groq/compound', api_key:'', api_base_url:'', temperature:'0.7', max_tokens:'2048', is_default:false })
   }
 
   async function deleteConfig(id) {
@@ -107,6 +130,7 @@ export default function LLMSettings() {
                   <Btn variant="ghost" size="sm" onClick={() => testConnection(c.id)} disabled={testState[c.id]==='testing'}>
                     {testState[c.id]==='testing' ? <Spinner size={12}/> : null} Test
                   </Btn>
+                  <Btn variant="ghost" size="sm" onClick={() => openEdit(c)}>Edit</Btn>
                   <Btn variant="danger" size="sm" onClick={() => deleteConfig(c.id)}>Delete</Btn>
                 </div>
               </Card>
@@ -116,8 +140,8 @@ export default function LLMSettings() {
       </div>
 
       {showCreate && (
-        <Modal title="Add LLM Config" onClose={() => setShowCreate(false)} width={500}
-          footer={<><Btn variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Btn><Btn onClick={create}>Save</Btn></>}>
+        <Modal title={editId ? 'Edit LLM Config' : 'Add LLM Config'} onClose={closeModal} width={500}
+          footer={<><Btn variant="ghost" onClick={closeModal}>Cancel</Btn><Btn onClick={create}>{editId ? 'Update' : 'Create'}</Btn></>}>
           <Input label="Config Name *" placeholder="e.g. GPT-4o Production" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))}/>
           <Select label="Provider" value={form.provider} onChange={e => setForm(f=>({...f,provider:e.target.value,model:MODELS[e.target.value]?.[0]||''}))}>
             {PROVIDERS.map(p=><option key={p} value={p}>{p}</option>)}

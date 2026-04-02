@@ -9,7 +9,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, Wrench, Globe, Code2, Cpu, Trash2 } from 'lucide-react'
+import { Plus, Wrench, Globe, Code2, Cpu, Trash2, Edit } from 'lucide-react'
 import { toolsApi } from '../api/tools'
 import {
   PageHeader, Badge, Btn, Card, CardHeader,
@@ -23,16 +23,13 @@ const TYPE_META = {
   langchain: { label:'LangChain', color:'cyan',   Icon: Wrench},
 }
 
-const BUILTIN_DEFAULTS = [
-  { id:'b1', name:'web_search',  tool_type:'builtin', description:'DuckDuckGo — search the web for current information.', is_enabled:true  },
-  { id:'b2', name:'wikipedia',   tool_type:'builtin', description:'Query Wikipedia for encyclopedic knowledge.',           is_enabled:true  },
-  { id:'b3', name:'python_repl', tool_type:'builtin', description:'Execute Python code in a sandboxed REPL environment.', is_enabled:true  },
-]
+// Built-in tool defaults are removed; rely on user-created tools from backend data.
 
 export default function ToolsManagement() {
   const [tools,      setTools]      = useState([])
   const [loading,    setLoading]    = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [editId,     setEditId]     = useState(null)
   const [form,       setForm]       = useState({
     name:'', description:'', tool_type:'api',
     endpoint_url:'', http_method:'POST', source_code:'', is_enabled:true,
@@ -41,24 +38,39 @@ export default function ToolsManagement() {
   const load = useCallback(async () => {
     try {
       const res = await toolsApi.list()
-      const apiTools = res.data
-      // Merge API tools with builtins — avoid duplicates by name
-      const apiNames = apiTools.map(t => t.name)
-      const extras   = BUILTIN_DEFAULTS.filter(b => !apiNames.includes(b.name))
-      setTools([...extras, ...apiTools])
-    } catch {
-      setTools([
-        ...BUILTIN_DEFAULTS,
-        { id:'t4', name:'CRM Lookup',   tool_type:'api',    description:'POST /api/crm/lookup — fetch customer records by email.',   is_enabled:false, endpoint_url:'https://api.example.com/crm/lookup' },
-        { id:'t5', name:'Slack Notify', tool_type:'api',    description:'POST /api/slack/send — send a message to a Slack channel.', is_enabled:true,  endpoint_url:'https://hooks.slack.com/services/...' },
-        { id:'t6', name:'Date Helper',  tool_type:'custom', description:'Returns today\'s date and time in various formats.',        is_enabled:true,  source_code:'def get_tool():\n    from langchain_core.tools import tool\n    @tool\n    def date_helper(fmt: str) -> str:\n        """Return current date in the requested format."""\n        from datetime import datetime\n        return datetime.now().strftime(fmt or "%Y-%m-%d")\n    return date_helper' },
-      ])
+      setTools(res.data)
+    } catch (error) {
+      console.error('Failed to load tools', error)
+      setTools([])
+      toast.error('Unable to load tools from backend')
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  /* ── Open Edit ── */
+  function openEdit(tool) {
+    setEditId(tool.id)
+    setForm({
+      name: tool.name,
+      description: tool.description || '',
+      tool_type: tool.tool_type,
+      endpoint_url: tool.endpoint_url || '',
+      http_method: tool.http_method || 'POST',
+      source_code: tool.source_code || '',
+      is_enabled: tool.is_enabled,
+    })
+    setShowCreate(true)
+  }
+
+  /* ── Close Modal ── */
+  function closeModal() {
+    setShowCreate(false)
+    setEditId(null)
+    setForm({ name:'', description:'', tool_type:'api', endpoint_url:'', http_method:'POST', source_code:'', is_enabled:true })
+  }
 
   /* ── Toggle ── */
   async function toggleTool(id) {
@@ -79,19 +91,44 @@ export default function ToolsManagement() {
     toast.success('Tool deleted')
   }
 
-  /* ── Create ── */
+  /* ── Test ── */
+  async function testTool(id) {
+    try {
+      const res = await toolsApi.test(id)
+      if (res.data.status === 'ok') {
+        toast.success(`Tool test passed: ${res.data.message || `HTTP ${res.data.code}`}`)
+      } else {
+        toast.error(`Tool test failed: ${res.data.message}`)
+      }
+    } catch (error) {
+      console.error('Tool test error', error)
+      toast.error(`Tool test failed: ${error.response?.data?.detail || error.message}`)
+    }
+  }
+
+  /* ── Create / Update ── */
   async function createTool() {
     if (!form.name.trim()) return toast.error('Tool name is required')
     try {
-      const res = await toolsApi.create(form)
-      setTools(prev => [...prev, res.data])
-      toast.success('Tool created')
-    } catch {
-      setTools(prev => [...prev, { id:`t${Date.now()}`, ...form }])
-      toast.success('Tool created (demo mode)')
+      let res
+      if (editId) {
+        res = await toolsApi.update(editId, form)
+        setTools(prev => prev.map(t => t.id === editId ? res.data : t))
+        toast.success('Tool updated')
+      } else {
+        res = await toolsApi.create(form)
+        setTools(prev => [...prev, res.data])
+        toast.success('Tool created')
+      }
+    } catch (err) {
+      if (editId) {
+        toast.error('Failed to update tool')
+      } else {
+        toast.success('Tool created (demo mode)')
+        setTools(prev => [...prev, { id:`t${Date.now()}`, ...form }])
+      }
     }
-    setShowCreate(false)
-    setForm({ name:'', description:'', tool_type:'api', endpoint_url:'', http_method:'POST', source_code:'', is_enabled:true })
+    closeModal()
   }
 
   const enabled  = tools.filter(t => t.is_enabled).length
@@ -210,15 +247,29 @@ export default function ToolsManagement() {
                           </div>
                         </td>
 
-                        {/* Delete */}
-                        <td style={{ padding:'14px 16px' }}>
+                        {/* Actions */}
+                        <td style={{ padding:'14px 16px', display:'flex', gap:8 }}>
+                          <button
+                            onClick={() => testTool(tool.id)}
+                            style={{ background:'none', border:'1px solid #23262f', color:'#4f8ef7', cursor:'pointer', padding:'4px 8px', borderRadius:6 }}
+                          >
+                            Test
+                          </button>
                           {tool.tool_type !== 'builtin' && (
-                            <button
-                              onClick={() => deleteTool(tool.id)}
-                              style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:6, borderRadius:6 }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => openEdit(tool)}
+                                style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:6, borderRadius:6 }}
+                              >
+                                <Edit size={13} />
+                              </button>
+                              <button
+                                onClick={() => deleteTool(tool.id)}
+                                style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:6, borderRadius:6 }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -234,13 +285,13 @@ export default function ToolsManagement() {
       {/* ── Create Tool Modal ── */}
       {showCreate && (
         <Modal
-          title="Add Tool"
-          onClose={() => setShowCreate(false)}
+          title={editId ? 'Edit Tool' : 'Add Tool'}
+          onClose={closeModal}
           width={540}
           footer={
             <>
-              <Btn variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Btn>
-              <Btn onClick={createTool}>Create Tool</Btn>
+              <Btn variant="ghost" onClick={closeModal}>Cancel</Btn>
+              <Btn onClick={createTool}>{editId ? 'Save Changes' : 'Create Tool'}</Btn>
             </>
           }
         >

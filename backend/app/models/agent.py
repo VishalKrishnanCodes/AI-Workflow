@@ -24,6 +24,7 @@ class Agent(Base):
  
     # Which LLM config this agent uses
     llm_config_id = Column(UUID(as_uuid=True), nullable=True)
+    domain = Column(String(100), nullable=True, default='')
  
     # Tool IDs this agent can use
     tool_ids = Column(JSON, nullable=True, default=[])
