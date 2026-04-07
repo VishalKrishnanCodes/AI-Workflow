@@ -102,7 +102,7 @@ export default function AgentManagement() {
 
   /* ── Delete agent ── */
   async function deleteAgent(id) {
-    if (!confirm('Delete this agent?')) return
+    if (!confirm('Are you sure you want to delete this agent? This action cannot be undone.')) return
     try { await agentsApi.delete(id) } catch {}
     setAgents(prev => prev.filter(a => a.id !== id))
     if (selectedAgent?.id === id) setSelectedAgent(null)

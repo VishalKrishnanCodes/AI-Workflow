@@ -85,7 +85,7 @@ export default function ToolsManagement() {
 
   /* ── Delete ── */
   async function deleteTool(id) {
-    if (!confirm('Delete this tool?')) return
+    if (!confirm('Are you sure you want to delete this tool? This action cannot be undone.')) return
     try { await toolsApi.delete(id) } catch {}
     setTools(prev => prev.filter(t => t.id !== id))
     toast.success('Tool deleted')

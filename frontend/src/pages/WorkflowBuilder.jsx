@@ -1,6 +1,6 @@
 // PATH: frontend/src/pages/WorkflowBuilder.jsx
 //
-// The Workflow Builder — the most important page in the application.
+// The Task Builder— the most important page in the application.
 //
 // LAYOUT (top to bottom):
 //   1. Header — page title + Save button (always visible top-right)
@@ -163,15 +163,15 @@ export default function WorkflowBuilder() {
       agent_id:        selectedAgent || null,
       llm_config_id:   primaryLlm   || null,
       tool_ids:        selectedTools,
-      workflow_config: { nodes: nodes.map(n => ({ ...n, id: n.id })), edges: buildEdges() },
       test_prompt:     testPrompt,
     }
     try {
       const res = await workflowsApi.dryRun(body)
       setDryResult(res.data)
-    } catch {
-      await new Promise(r => setTimeout(r, 2000))
-      setDryResult(simulateDryRun(nodes, selectedTools, tools, testPrompt))
+    } catch (error) {
+      console.error('Dry run failed', error)
+      const errorMsg = error.response?.data?.error || error.message || 'Unknown error'
+      toast.error(`Dry run failed: ${errorMsg}`)
     } finally {
       setDryRunning(false)
     }
@@ -179,8 +179,8 @@ export default function WorkflowBuilder() {
 
   // ── Save ───────────────────────────────────────────────────────────────────
   async function saveWorkflow() {
-    if (!workflowName.trim()) return toast.error('Give this workflow a name first')
-    if (!selectedAgent)       return toast.error('Select an agent to run this workflow')
+    if (!workflowName.trim()) return toast.error('Your Task requires a name 😊')
+    if (!selectedAgent)       return toast.error('Select an agent to run this Task')
     setSaving(true)
     const body = {
       name:            workflowName,
@@ -232,9 +232,9 @@ export default function WorkflowBuilder() {
       ══════════════════════════════════════════════════════════════════════ */}
       <div style={{ padding:'28px 32px 0', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexShrink:0 }}>
         <div>
-          <h1 style={{ fontFamily:'Syne,sans-serif', fontSize:22, fontWeight:700 }}>Workflow Builder</h1>
+          <h1 style={{ fontFamily:'Syne,sans-serif', fontSize:22, fontWeight:700 }}>Task Workflow Builder</h1>
           <p style={{ fontSize:13, color:C.muted, marginTop:4 }}>
-            Describe your use case, select an agent + LLMs + tools, build the workflow, then test it
+            Describe the use case for your task, select an agent + LLMs + tools, build the task workflow, then test it
           </p>
         </div>
         <div style={{ display:'flex', gap:10, paddingTop:4 }}>
@@ -244,7 +244,7 @@ export default function WorkflowBuilder() {
           <input
             value={workflowName}
             onChange={e => setWorkflowName(e.target.value)}
-            placeholder="Workflow name…"
+            placeholder="Task name…"
             style={{
               background:C.bg3, border:`1px solid ${workflowName?C.accent:C.bd}`,
               borderRadius:8, padding:'8px 14px', color:C.text,
@@ -265,8 +265,8 @@ export default function WorkflowBuilder() {
         ══════════════════════════════════════════════════════════════════ */}
         <Section label="01 — Use Case" icon={<FileText size={14}/>} accent={C.cyan}>
           <div style={{ marginBottom:10, fontSize:13, color:C.muted, lineHeight:1.6 }}>
-            Describe in detail what you want this workflow to accomplish. Be specific —
-            this becomes the system prompt that guides the entire workflow.
+            Describe in detail what you want this task to accomplish. Be specific —
+            this becomes the system prompt that guides the entire task.
           </div>
           <textarea
             value={useCase}
@@ -296,7 +296,7 @@ export default function WorkflowBuilder() {
           {/* Agent */}
           <Section label="02 — Agent" icon={<Bot size={14}/>} accent={C.accent2}>
             <div style={{ fontSize:12, color:C.muted, marginBottom:12 }}>
-              Which agent runs this workflow. The agent's system prompt is merged with your use case.
+              Which agent runs this task. The agent's system prompt is merged with your use case.
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
               {agents.map(a => (
@@ -336,7 +336,7 @@ export default function WorkflowBuilder() {
           {/* LLMs */}
           <Section label="03 — LLM Selection" icon={<BrainCircuit size={14}/>} accent={C.accent}>
             <div style={{ fontSize:12, color:C.muted, marginBottom:12 }}>
-              Primary LLM for this workflow. Individual nodes can override this.
+              Primary LLM for this task. Individual nodes can override this.
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
               {llms.map(l => (
@@ -375,7 +375,7 @@ export default function WorkflowBuilder() {
           {/* Tools */}
           <Section label="04 — Tools" icon={<Wrench size={14}/>} accent={C.amber}>
             <div style={{ fontSize:12, color:C.muted, marginBottom:12 }}>
-              Select all tools this workflow is allowed to call. Only enabled tools appear here.
+              Select all tools this task is allowed to call. Only enabled tools appear here.
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
               {tools.filter(t => t.is_enabled !== false).map(tool => {
@@ -421,7 +421,7 @@ export default function WorkflowBuilder() {
             3. WORKFLOW NODE BUILDER
         ══════════════════════════════════════════════════════════════════ */}
         <Section
-          label="05 — Workflow"
+          label="05 — Task Workflow"
           icon={<Layers size={14}/>}
           accent={C.accent2}
           right={
@@ -805,7 +805,8 @@ function NodeBtn({ onClick, disabled, active, danger, children, title }) {
   )
 }
 
-// ── Demo dry-run simulation ────────────────────────────────────────────────────
+// ── Demo dry-run simulation (removed - now uses real backend) ──────────────────
+/*
 function simulateDryRun(nodes, selectedTools, allTools, prompt) {
   const steps = []
   const toolNames = selectedTools.map(id => allTools.find(t => String(t.id)===id)?.name || id)
@@ -847,3 +848,4 @@ function simulateDryRun(nodes, selectedTools, allTools, prompt) {
     error: null,
   }
 }
+*/

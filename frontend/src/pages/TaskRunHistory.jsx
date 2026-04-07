@@ -17,27 +17,10 @@ import { format } from 'date-fns'
 
 const STATUS_COLOR = { success:'green', failed:'red', running:'amber', pending:'gray', timeout:'red', cancelled:'gray' }
 
-/* ── Demo data used when backend is offline ── */
-const DEMO_RUNS = [
-  { id:'r1', task_id:'tk1', task_name:'Daily Market Digest', cron_expression:'0 7 * * 1-5', started_at:'2025-01-15T07:00:12Z', finished_at:'2025-01-15T07:00:54Z', duration_seconds:42, status:'success', exit_code:0, triggered_by:'cron', docker_image:'ai-workflow-agent-runner:latest',
-    logs:`[runner] Starting task=tk1 run=r1 agent=a1\n[runner] Fetching http://backend:8000/agents/a1\n[runner] Loaded agent: Research Agent\n[runner] LLM: openai / gpt-4o\n[runner] Tool loaded: web_search\n[runner] Tool loaded: wikipedia\n[runner] LangGraph compiled successfully\n[runner] Executing agent...\n[runner] Node: agent\n[runner] Node: tools  →  web_search("market digest 2025-01-15")\n[runner] Node: agent\n[runner] Node: tools  →  wikipedia("stock market January 2025")\n[runner] Node: agent\n[runner] Final output:\nMarket Digest — 15 Jan 2025:\n• S&P 500 up 0.4% to 4,912\n• NASDAQ gained 0.7%\n• Key driver: positive CPI data released this morning\n• Top movers: NVDA +3.2%, TSLA -1.1%\n[runner] Task completed successfully\n` },
-
-  { id:'r2', task_id:'tk2', task_name:'Weekly Code Audit', cron_expression:'0 9 * * 1', started_at:'2025-01-13T09:00:05Z', finished_at:'2025-01-13T09:01:32Z', duration_seconds:87, status:'success', exit_code:0, triggered_by:'cron', docker_image:'ai-workflow-agent-runner:latest',
-    logs:`[runner] Starting task=tk2 run=r2 agent=a2\n[runner] Fetching http://backend:8000/agents/a2\n[runner] Loaded agent: Code Review Agent\n[runner] LLM: anthropic / claude-3-5-sonnet-20241022\n[runner] Tool loaded: python_repl\n[runner] LangGraph compiled successfully\n[runner] Executing agent...\n[runner] Node: agent\n[runner] Node: tools  →  python_repl("import ast; tree = ast.parse(open('main.py').read())")\n[runner] Node: agent  →  Detected 2 style issues, 0 critical bugs\n[runner] Final output:\nCode Review Complete:\n✅ No critical security vulnerabilities\n⚠️  2 style issues found\n   - Line 14: ambiguous variable name\n   - Line 58: missing type annotation\n💡 Suggestion: Add unit tests for the payment module\n[runner] Task completed successfully\n` },
-
-  { id:'r3', task_id:'tk1', task_name:'Daily Market Digest', cron_expression:'0 7 * * 1-5', started_at:'2025-01-14T07:00:08Z', finished_at:'2025-01-14T07:00:20Z', duration_seconds:12, status:'failed', exit_code:1, triggered_by:'cron', docker_image:'ai-workflow-agent-runner:latest',
-    logs:`[runner] Starting task=tk1 run=r3 agent=a1\n[runner] Fetching http://backend:8000/agents/a1\n[runner] Loaded agent: Research Agent\n[runner] LLM: openai / gpt-4o\n[runner] Tool loaded: web_search\n[runner] LangGraph compiled successfully\n[runner] Executing agent...\n[runner] Node: agent\n[runner] Node: tools  →  web_search("market digest 2025-01-14")\nERROR: RateLimitError: You exceeded your current quota.\n        Please check your plan and billing details.\n[runner] FATAL ERROR: LLM API rate limit exceeded\nTraceback (most recent call last):\n  File "run_agent.py", line 87, in main\n    async for event in graph.astream(...):\n  File "langchain_openai/chat_models.py", line 412\n    raise RateLimitError(message)\nopenai.RateLimitError: Rate limit exceeded\n` },
-
-  { id:'r4', task_id:'tk3', task_name:'Ad-hoc Analysis', cron_expression:null, started_at:'2025-01-10T14:23:00Z', finished_at:'2025-01-10T14:25:10Z', duration_seconds:130, status:'success', exit_code:0, triggered_by:'manual', docker_image:'ai-workflow-agent-runner:latest',
-    logs:`[runner] Starting task=tk3 run=r4 agent=a3\n[runner] Fetching http://backend:8000/agents/a3\n[runner] Loaded agent: Data Analyst Agent\n[runner] LLM: openai / gpt-4o\n[runner] Tool loaded: python_repl\n[runner] Tool loaded: web_search\n[runner] LangGraph compiled successfully\n[runner] Executing agent...\n[runner] Node: agent\n[runner] Node: tools  →  python_repl("import pandas as pd; df = pd.read_csv('sales.csv'); print(df.describe())")\ncount    1245.000000\nmean       42.312000\nstd         8.739812\nmin        12.000000\n25%        36.000000\n50%        43.000000\n75%        49.000000\nmax        78.000000\n[runner] Node: agent  →  Analysing Q3 anomaly...\n[runner] Node: tools  →  python_repl("df[df['quarter']=='Q3'].groupby('region').sum()")\n[runner] Final output:\nData Analysis Complete:\n• 1,245 records processed\n• Mean value: 42.3 (σ = 8.7)\n• Q3 spike detected in North region (+34% vs avg)\n• Recommendation: Investigate North region supply chain\n[runner] Task completed successfully\n` },
-
-  { id:'r5', task_id:'tk1', task_name:'Daily Market Digest', cron_expression:'0 7 * * 1-5', started_at:'2025-01-13T07:00:10Z', finished_at:'2025-01-13T07:00:48Z', duration_seconds:38, status:'success', exit_code:0, triggered_by:'cron', docker_image:'ai-workflow-agent-runner:latest',
-    logs:`[runner] Starting task=tk1 run=r5 agent=a1\n[runner] Loaded agent: Research Agent\n[runner] Tool loaded: web_search\n[runner] Tool loaded: wikipedia\n[runner] LangGraph compiled successfully\n[runner] Executing agent...\n[runner] Node: agent\n[runner] Node: tools  →  web_search("market digest 2025-01-13")\n[runner] Node: agent\n[runner] Final output:\nMarket Digest — 13 Jan 2025:\n• S&P 500 closed at 4,890 (+0.2%)\n• Bond yields steady at 4.3%\n• Fed minutes released — no rate changes expected Q1\n[runner] Task completed successfully\n` },
-]
-
 export default function TaskRunHistory() {
   const [runs,       setRuns]       = useState([])
   const [loading,    setLoading]    = useState(true)
+  const [backendError, setBackendError] = useState(false)
   const [filter,     setFilter]     = useState('all')
   const [expandedId, setExpandedId] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -50,8 +33,11 @@ export default function TaskRunHistory() {
       const res = await taskRunsApi.list({ limit:50 })
       // Attach task_name from task object if present
       setRuns(res.data)
+      setBackendError(false)
     } catch {
-      setRuns(DEMO_RUNS)
+      setRuns([])
+      setBackendError(true)
+      toast.error('Unable to load data from backend')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -137,6 +123,8 @@ export default function TaskRunHistory() {
 
           {loading ? (
             <div style={{ display:'flex', justifyContent:'center', padding:60 }}><Spinner size={28}/></div>
+          ) : backendError ? (
+            <Empty icon="⚠️" message="Unable to load data from backend" />
           ) : filtered.length === 0 ? (
             <Empty icon="📜" message="No runs found" />
           ) : (

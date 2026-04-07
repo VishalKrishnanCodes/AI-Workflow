@@ -144,7 +144,7 @@ async def main():
             ))
 
         # 7. Build the LangGraph graph
-        from graph_builder import build_agent_graph
+        from app.agent_runner.graph_builder import build_agent_graph
         graph = build_agent_graph(agent, llm_config, tools, skills, {})
         print("[runner] LangGraph compiled successfully")
 

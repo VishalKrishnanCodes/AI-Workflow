@@ -35,7 +35,7 @@ from app.routers.skill     import router as skill_router
 from app.routers.tasks     import router as tasks_router
 from app.routers.task_runs import router as task_runs_router
 from app.routers.dashboard import router as dashboard_router
-from app.routers.dashboard import router as workflows_router
+from app.routers.workflows import router as workflows_router
 
 # ── Create the FastAPI app ────────────────────────────────────────────────────
 app = FastAPI(

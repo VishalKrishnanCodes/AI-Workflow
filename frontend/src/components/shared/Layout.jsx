@@ -11,7 +11,7 @@ const NAV = [
   { to: '/agents',    icon: Bot,             label: 'Agents'            },
   { to: '/llm',       icon: BrainCircuit,    label: 'LLM Settings'      },
   { to: '/tools',     icon: Wrench,          label: 'Tools'             },
-  { to: '/workflows', icon: Workflow,        label: 'Workflow Builder'  },
+  { to: '/workflows', icon: Workflow,        label: 'Task Builder'  },
   { to: '/scheduler', icon: Clock,           label: 'Scheduler'         },
   { to: '/history',   icon: ScrollText,      label: 'Run History'       },
 ]
@@ -27,7 +27,7 @@ export default function Layout({ children }) {
       }}>
         <div style={{ padding:'22px 20px 18px', borderBottom:'1px solid #23262f' }}>
           <div style={{ fontFamily:'Syne,sans-serif', fontSize:17, fontWeight:800, letterSpacing:'-0.5px' }}>
-            ⬡ Orion
+            ⬡ Sphinx
           </div>
           <div style={{ fontSize:10, color:'#6b7080', letterSpacing:'2px', textTransform:'uppercase', marginTop:3, fontFamily:'DM Mono,monospace' }}>
             AI Workflow

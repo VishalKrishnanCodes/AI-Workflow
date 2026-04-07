@@ -69,7 +69,7 @@ def execute_task(self, task_id: str, run_id: str):
             "RUN_ID":        str(run.id),
             "AGENT_ID":      str(task.agent_id),
             # Internal URL so the container can call the FastAPI backend
-            "API_BASE_URL":  "http://backend:8000",
+            "API_BASE_URL":  getattr(settings, "DOCKER_API_BASE_URL", "http://host.docker.internal:8000"),
         }
         # Merge any task-level custom env vars (e.g. API keys for specific tools)
         if task.docker_env_vars:

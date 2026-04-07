@@ -25,6 +25,7 @@ from app.models.agent import Agent
 from app.models.task import Task, TaskStatus, TriggerType
 from app.models.llm_config import LLMConfig
 from app.models.tool import Tool
+from app.models.skill import Skill
 
 router = APIRouter(prefix="/workflows", tags=["Workflow Builder"])
 
@@ -66,9 +67,6 @@ class WorkflowDryRunRequest(BaseModel):
     # Tool IDs selected for this workflow
     tool_ids:         List[str] = []
 
-    # The actual LangGraph workflow definition
-    workflow_config:  Optional[WorkflowConfig] = None
-
     # The test prompt for the dry run
     test_prompt:      str
 
@@ -101,6 +99,10 @@ async def workflow_dry_run(
     start = time.time()
 
     try:
+        # ── Validate required configs ──────────────────────────────────────────
+        if not payload.llm_config_id and (not payload.agent_id or not hasattr(agent, 'llm_config_id') or not agent.llm_config_id):
+            raise HTTPException(status_code=400, detail="No LLM configuration found. Please select an LLM or choose an agent with an LLM configured.")
+
         # ── Load or build agent ─────────────────────────────────────────────
         if payload.agent_id:
             agent = db.query(Agent).filter(Agent.id == payload.agent_id).first()
@@ -119,6 +121,7 @@ async def workflow_dry_run(
                 name="Workflow Dry Run",
                 system_prompt=payload.use_case,
                 tool_ids=payload.tool_ids,
+                skill_ids=[],  # Temporary agent has no skills
                 llm_config_id=payload.llm_config_id,
                 max_iterations="10",
                 workflow_config=payload.workflow_config.model_dump() if payload.workflow_config else {},
@@ -142,9 +145,15 @@ async def workflow_dry_run(
                 Tool.is_enabled == True,
             ).all()
 
+        # ── Load skills ──────────────────────────────────────────────────────
+        skills = []
+        skill_ids = agent.skill_ids if hasattr(agent, 'skill_ids') and agent.skill_ids else []
+        if skill_ids:
+            skills = db.query(Skill).filter(Skill.id.in_(skill_ids)).all()
+
         # ── Run LangGraph ───────────────────────────────────────────────────
         from app.agent_runner.graph_builder import build_agent_graph
-        graph = build_agent_graph(agent, llm_config, tools, {})
+        graph = build_agent_graph(agent, llm_config, tools, skills, {})
 
         steps = []
         final_output = ""

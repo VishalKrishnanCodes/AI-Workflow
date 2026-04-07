@@ -4,7 +4,7 @@
 # The Celery worker spawns one container per task run using this image.
 #
 # Build it once from the project root:
-#   docker build -f agent-runner/Dockerfile.runner -t ai-workflow-agent-runner:latest .
+#   docker build -f agent_runner/Dockerfile.runner -t ai-workflow-agent-runner:latest .
 #
 # The container is given these environment variables by the Celery worker:
 #   TASK_ID       → UUID of the task
@@ -19,13 +19,12 @@ WORKDIR /app
 # Install dependencies
 RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
 
-COPY agent-runner/requirements-runner.txt .
+COPY agent_runner/requirements-runner.txt .
 RUN pip install --no-cache-dir -r requirements-runner.txt
 
-# Copy the runner script and graph builder
-COPY agent-runner/run_agent.py  .
-COPY backend/app/agent_runner/graph_builder.py .
-COPY backend/app/services/llm_service.py       .
+# Copy the app directory and runner script
+COPY backend/app /app/app
+COPY agent_runner/run_agent.py  .
 
 # The runner script is the entrypoint
 CMD ["python", "run_agent.py"]

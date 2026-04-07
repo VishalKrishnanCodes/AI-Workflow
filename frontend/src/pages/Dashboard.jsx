@@ -1,31 +1,32 @@
 // PATH: frontend/src/pages/Dashboard.jsx
-import React, { useEffect, useState } from 'react'
+import React, { useEffect,useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
+import toast from 'react-hot-toast'
 import { Card, CardHeader, Badge, Btn, Spinner } from '../components/shared/UI'
 import { ArrowRight } from 'lucide-react'
 
-const DEMO = {
-  total_agents:3, active_agents:2, total_tools:5, enabled_tools:4,
-  total_tasks:3,  active_schedules:2, total_runs:5, successful_runs:4, failed_runs:1,
-  recent_runs:[
-    { id:'r1', task_name:'Daily Market Digest', status:'success', duration_seconds:42,  started_at:'2025-01-15T07:00:12Z', triggered_by:'cron'   },
-    { id:'r2', task_name:'Weekly Code Audit',   status:'success', duration_seconds:87,  started_at:'2025-01-13T09:00:05Z', triggered_by:'cron'   },
-    { id:'r3', task_name:'Daily Market Digest', status:'failed',  duration_seconds:12,  started_at:'2025-01-14T07:00:08Z', triggered_by:'cron'   },
-    { id:'r4', task_name:'Ad-hoc Analysis',     status:'success', duration_seconds:130, started_at:'2025-01-10T14:23:00Z', triggered_by:'manual' },
-  ],
+const DEFAULT_STATS = {
+  total_agents:0, active_agents:0, total_tools:0, enabled_tools:0,
+  total_tasks:0, active_schedules:0, total_runs:0, successful_runs:0, failed_runs:0,
+  recent_runs: [],
 }
+
 const STATUS_COLOR = { success:'green', failed:'red', running:'amber', pending:'gray' }
 
 export default function Dashboard() {
-  const [stats,   setStats]   = useState(null)
+  const [stats,   setStats]   = useState(DEFAULT_STATS)
   const [loading, setLoading] = useState(true)
   const nav = useNavigate()
+  
 
   useEffect(() => {
     api.get('/dashboard/stats')
       .then(r => setStats(r.data))
-      .catch(() => setStats(DEMO))
+      .catch(() => {
+        setStats(DEFAULT_STATS)
+          toast.error('Unable to load data from backend; please check backend status.')
+    })
       .finally(() => setLoading(false))
   }, [])
 

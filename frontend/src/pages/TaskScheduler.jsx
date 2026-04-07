@@ -12,20 +12,13 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, Clock, Play, Pause, Trash2 } from 'lucide-react'
+import { Plus, Clock, Play, Pause, Trash2, Edit } from 'lucide-react'
 import { tasksApi } from '../api/tasks'
 import { agentsApi } from '../api/agents'
 import {
   PageHeader, Badge, Btn, Card, CardHeader,
   Modal, Input, Select, Textarea, Toggle, Spinner, Empty,
 } from '../components/shared/UI'
-
-/* ── Demo data ── */
-const DEMO_TASKS = [
-  { id:'tk1', name:'Daily Market Digest', description:'Runs at 7 AM weekdays', cron_expression:'0 7 * * 1-5', agent_id:'a1', input_prompt:'Generate a market digest for today', is_active:true, last_run:'2025-01-15T07:00:12Z', next_run:'2025-01-16T07:00:00Z' },
-  { id:'tk2', name:'Weekly Code Audit', description:'Every Monday at 9 AM', cron_expression:'0 9 * * 1', agent_id:'a2', input_prompt:'Run a code review on the main branch', is_active:true, last_run:'2025-01-13T09:00:05Z', next_run:'2025-01-20T09:00:00Z' },
-  { id:'tk3', name:'Data Analysis', description:'Paused', cron_expression:'0 */6 * * *', agent_id:'a3', input_prompt:'Analyze today\'s data', is_active:false, last_run:'2025-01-10T14:23:00Z', next_run:null },
-]
 
 const CRON_PRESETS = [
   { label:'Every hour', value:'0 * * * *' },
@@ -40,7 +33,9 @@ export default function TaskScheduler() {
   const [tasks,       setTasks]       = useState([])
   const [agents,      setAgents]      = useState([])
   const [loading,     setLoading]     = useState(true)
+  const [backendError, setBackendError] = useState(false)
   const [showCreate,  setShowCreate]  = useState(false)
+  const [editId,      setEditId]      = useState(null)
   const [form,        setForm]        = useState({
     name:'', description:'', agent_id:'', cron_expression:'0 7 * * *', input_prompt:'', is_active:true,
   })
@@ -51,13 +46,12 @@ export default function TaskScheduler() {
       const [tk, ag] = await Promise.all([tasksApi.list(), agentsApi.list()])
       setTasks(tk.data)
       setAgents(ag.data)
+      setBackendError(false)
     } catch {
-      setTasks(DEMO_TASKS)
-      setAgents([
-        { id:'a1', name:'Research Agent' },
-        { id:'a2', name:'Code Review Agent' },
-        { id:'a3', name:'Data Analyst Agent' },
-      ])
+      setTasks([])
+      setAgents([])
+      setBackendError(true)
+      toast.error('Unable to load data from backend')
     } finally {
       setLoading(false)
     }
@@ -65,21 +59,46 @@ export default function TaskScheduler() {
 
   useEffect(() => { load() }, [load])
 
-  async function createTask() {
+  async function saveTask() {
     if (!form.name.trim()) return toast.error('Task name is required')
     if (!form.agent_id) return toast.error('Select an agent')
     if (!form.cron_expression.trim()) return toast.error('Cron expression is required')
     try {
-      const res = await tasksApi.create(form)
-      setTasks(prev => [res.data, ...prev])
-      toast.success('Task scheduled')
+      if (editId) {
+        const res = await tasksApi.update(editId, form)
+        setTasks(prev => prev.map(t => t.id === editId ? res.data : t))
+        toast.success('Task updated')
+      } else {
+        const res = await tasksApi.create(form)
+        setTasks(prev => [res.data, ...prev])
+        toast.success('Task scheduled')
+      }
     } catch {
-      const mock = { id:`tk${Date.now()}`, ...form, is_active:true, created_at: new Date().toISOString() }
-      setTasks(prev => [mock, ...prev])
-      toast.success('Task scheduled (demo mode)')
+      toast.error(`Unable to ${editId ? 'update' : 'schedule'} task: backend unavailable`)
     }
+    closeModal()
+  }
+
+  function openEdit(task) {
+    setEditId(task.id)
+    setForm({
+      name: task.name || '',
+      description: task.description || '',
+      agent_id: task.agent_id || '',
+      cron_expression: task.cron_expression || '0 7 * * *',
+      input_prompt: task.input_prompt || '',
+      is_active: task.is_active !== undefined ? task.is_active : true
+    })
+    const isPreset = CRON_PRESETS.find(p => p.value === task.cron_expression)
+    setCronPreset(isPreset ? task.cron_expression : '')
+    setShowCreate(true)
+  }
+
+  function closeModal() {
     setShowCreate(false)
+    setEditId(null)
     setForm({ name:'', description:'', agent_id:'', cron_expression:'0 7 * * *', input_prompt:'', is_active:true })
+    setCronPreset('0 7 * * *')
   }
 
   async function toggleTask(id) {
@@ -88,7 +107,7 @@ export default function TaskScheduler() {
       setTasks(prev => prev.map(t => t.id === id ? res.data : t))
       toast.success('Task updated')
     } catch {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, is_active: !t.is_active } : t))
+      toast.error('Unable to update task: backend unavailable')
     }
   }
 
@@ -101,10 +120,10 @@ export default function TaskScheduler() {
 
   async function triggerNow(id) {
     try {
-      await tasksApi.runNow(id)
+      await tasksApi.trigger(id)
       toast.success('Task triggered!')
     } catch {
-      toast.success('Task triggered (demo mode)')
+      toast.error('Unable to trigger task: backend unavailable')
     }
   }
 
@@ -143,6 +162,8 @@ export default function TaskScheduler() {
         {/* Tasks grid */}
         {loading ? (
           <div style={{ display:'flex', justifyContent:'center', padding:60 }}><Spinner size={28} /></div>
+        ) : backendError ? (
+          <Empty icon="⚠️" message="Unable to load data from backend" />
         ) : tasks.length === 0 ? (
           <Empty icon="⏰" message="No scheduled tasks yet — create your first one" />
         ) : (
@@ -158,12 +179,20 @@ export default function TaskScheduler() {
                       {task.description || 'No description'}
                     </div>
                   </div>
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <div>
+                    <button
+                      onClick={() => openEdit(task)}
+                      style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4, marginRight: 8 }}
+                    >
+                      <Edit size={13} />
+                    </button>
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cron */}
@@ -211,16 +240,16 @@ export default function TaskScheduler() {
         )}
       </div>
 
-      {/* Create modal */}
+      {/* Create/Edit modal */}
       {showCreate && (
         <Modal
-          title="Schedule a Task"
-          onClose={() => setShowCreate(false)}
+          title={editId ? "Edit Task" : "Schedule a Task"}
+          onClose={closeModal}
           width={540}
           footer={
             <>
-              <Btn variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Btn>
-              <Btn onClick={createTask}>Schedule</Btn>
+              <Btn variant="ghost" onClick={closeModal}>Cancel</Btn>
+              <Btn onClick={saveTask}>{editId ? "Update" : "Schedule"}</Btn>
             </>
           }
         >
