@@ -20,6 +20,7 @@ class TaskCreate(BaseModel):
     docker_image:           Optional[str]            = None
     docker_env_vars:        Optional[Dict[str, str]] = {}
     docker_timeout_seconds: Optional[str]            = "300"
+    status:                 Optional[TaskStatus]     = TaskStatus.active
 
 
 class TaskUpdate(BaseModel):

@@ -25,7 +25,7 @@ celery_app = Celery(
     "ai_workflow",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.celery_worker.tasks"],  # tells Celery where to find task functions
+    include=["app.celery_worker.tasks", "app.celery_worker.scheduler"],  # tells Celery where to find task functions
 )
 
 celery_app.conf.update(
@@ -44,4 +44,12 @@ celery_app.conf.update(
 
     # Result expiry — keep results in Redis for 24 hours
     result_expires=86400,
+
+    # Scheduled Tasks
+    beat_schedule={
+        "check-and-trigger-cron-tasks-every-minute": {
+            "task": "app.celery_worker.scheduler.check_and_trigger_tasks",
+            "schedule": 60.0,
+        },
+    },
 )

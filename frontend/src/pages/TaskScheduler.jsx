@@ -21,23 +21,23 @@ import {
 } from '../components/shared/UI'
 
 const CRON_PRESETS = [
-  { label:'Every hour', value:'0 * * * *' },
-  { label:'Daily at 7 AM', value:'0 7 * * *' },
-  { label:'Every weekday at 9 AM', value:'0 9 * * 1-5' },
-  { label:'Every Monday at 9 AM', value:'0 9 * * 1' },
-  { label:'Every 6 hours', value:'0 */6 * * *' },
-  { label:'Custom', value:'' },
+  { label: 'Every hour', value: '0 * * * *' },
+  { label: 'Daily at 7 AM', value: '0 7 * * *' },
+  { label: 'Every weekday at 9 AM', value: '0 9 * * 1-5' },
+  { label: 'Every Monday at 9 AM', value: '0 9 * * 1' },
+  { label: 'Every 6 hours', value: '0 */6 * * *' },
+  { label: 'Custom', value: '' },
 ]
 
 export default function TaskScheduler() {
-  const [tasks,       setTasks]       = useState([])
-  const [agents,      setAgents]      = useState([])
-  const [loading,     setLoading]     = useState(true)
+  const [tasks, setTasks] = useState([])
+  const [agents, setAgents] = useState([])
+  const [loading, setLoading] = useState(true)
   const [backendError, setBackendError] = useState(false)
-  const [showCreate,  setShowCreate]  = useState(false)
-  const [editId,      setEditId]      = useState(null)
-  const [form,        setForm]        = useState({
-    name:'', description:'', agent_id:'', cron_expression:'0 7 * * *', input_prompt:'', is_active:true,
+  const [showCreate, setShowCreate] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [form, setForm] = useState({
+    name: '', description: '', agent_id: '', cron_expression: '0 7 * * *', input_prompt: '', status: 'active',
   })
   const [cronPreset, setCronPreset] = useState('0 7 * * *')
 
@@ -63,13 +63,16 @@ export default function TaskScheduler() {
     if (!form.name.trim()) return toast.error('Task name is required')
     if (!form.agent_id) return toast.error('Select an agent')
     if (!form.cron_expression.trim()) return toast.error('Cron expression is required')
+    const payload = { ...form, trigger_type: 'cron', input_payload: { prompt: form.input_prompt } }
+    delete payload.input_prompt
+
     try {
       if (editId) {
-        const res = await tasksApi.update(editId, form)
+        const res = await tasksApi.update(editId, payload)
         setTasks(prev => prev.map(t => t.id === editId ? res.data : t))
         toast.success('Task updated')
       } else {
-        const res = await tasksApi.create(form)
+        const res = await tasksApi.create(payload)
         setTasks(prev => [res.data, ...prev])
         toast.success('Task scheduled')
       }
@@ -86,8 +89,8 @@ export default function TaskScheduler() {
       description: task.description || '',
       agent_id: task.agent_id || '',
       cron_expression: task.cron_expression || '0 7 * * *',
-      input_prompt: task.input_prompt || '',
-      is_active: task.is_active !== undefined ? task.is_active : true
+      input_prompt: task.input_payload?.prompt || '',
+      status: task.status || 'active'
     })
     const isPreset = CRON_PRESETS.find(p => p.value === task.cron_expression)
     setCronPreset(isPreset ? task.cron_expression : '')
@@ -97,7 +100,7 @@ export default function TaskScheduler() {
   function closeModal() {
     setShowCreate(false)
     setEditId(null)
-    setForm({ name:'', description:'', agent_id:'', cron_expression:'0 7 * * *', input_prompt:'', is_active:true })
+    setForm({ name: '', description: '', agent_id: '', cron_expression: '0 7 * * *', input_prompt: '', status: 'active' })
     setCronPreset('0 7 * * *')
   }
 
@@ -113,7 +116,7 @@ export default function TaskScheduler() {
 
   async function deleteTask(id) {
     if (!confirm('Delete this task?')) return
-    try { await tasksApi.delete(id) } catch {}
+    try { await tasksApi.delete(id) } catch { }
     setTasks(prev => prev.filter(t => t.id !== id))
     toast.success('Task deleted')
   }
@@ -127,7 +130,7 @@ export default function TaskScheduler() {
     }
   }
 
-  const active = tasks.filter(t => t.is_active).length
+  const active = tasks.filter(t => t.status === 'active').length
 
   return (
     <div>
@@ -135,60 +138,60 @@ export default function TaskScheduler() {
         title="Task Scheduler"
         subtitle="Set up recurring agent tasks with cron expressions"
         action={
-          <Btn onClick={() => setShowCreate(true)} style={{ marginTop:28 }}>
+          <Btn onClick={() => setShowCreate(true)} style={{ marginTop: 28 }}>
             <Plus size={14} /> Schedule Task
           </Btn>
         }
       />
 
-      <div style={{ padding:'20px 32px 32px' }}>
+      <div style={{ padding: '20px 32px 32px' }}>
         {/* Stats */}
-        <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
           {[
-            { label:'Total Tasks', value: tasks.length, color:'#4f8ef7' },
-            { label:'Active', value: active, color:'#22c55e' },
-            { label:'Paused', value: tasks.length - active, color:'#6b7080' },
+            { label: 'Total Tasks', value: tasks.length, color: '#4f8ef7' },
+            { label: 'Active', value: active, color: '#22c55e' },
+            { label: 'Paused', value: tasks.length - active, color: '#6b7080' },
           ].map(s => (
             <div key={s.label} style={{
-              background:'#111318', border:'1px solid #23262f', borderRadius:10,
-              padding:'12px 18px', display:'flex', flexDirection:'column', gap:3,
+              background: '#111318', border: '1px solid #23262f', borderRadius: 10,
+              padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 3,
             }}>
-              <span style={{ fontSize:10, color:'#6b7080', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace' }}>{s.label}</span>
-              <span style={{ fontFamily:'Syne,sans-serif', fontSize:24, fontWeight:800, color:s.color }}>{s.value}</span>
+              <span style={{ fontSize: 10, color: '#6b7080', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'DM Mono,monospace' }}>{s.label}</span>
+              <span style={{ fontFamily: 'Syne,sans-serif', fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</span>
             </div>
           ))}
         </div>
 
         {/* Tasks grid */}
         {loading ? (
-          <div style={{ display:'flex', justifyContent:'center', padding:60 }}><Spinner size={28} /></div>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner size={28} /></div>
         ) : backendError ? (
           <Empty icon="⚠️" message="Unable to load data from backend" />
         ) : tasks.length === 0 ? (
           <Empty icon="⏰" message="No scheduled tasks yet — create your first one" />
         ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(350px,1fr))', gap:14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(350px,1fr))', gap: 14 }}>
             {tasks.map(task => (
-              <Card key={task.id} style={{ padding:'20px' }}>
-                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:'Syne,sans-serif', fontSize:15, fontWeight:700, marginBottom:2 }}>
+              <Card key={task.id} style={{ padding: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 2 }}>
                       {task.name}
                     </div>
-                    <div style={{ fontSize:12, color:'#6b7080' }}>
+                    <div style={{ fontSize: 12, color: '#6b7080' }}>
                       {task.description || 'No description'}
                     </div>
                   </div>
                   <div>
                     <button
                       onClick={() => openEdit(task)}
-                      style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4, marginRight: 8 }}
+                      style={{ background: 'none', border: 'none', color: '#6b7080', cursor: 'pointer', padding: 4, marginRight: 8 }}
                     >
                       <Edit size={13} />
                     </button>
                     <button
                       onClick={() => deleteTask(task.id)}
-                      style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}
+                      style={{ background: 'none', border: 'none', color: '#6b7080', cursor: 'pointer', padding: 4 }}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -196,42 +199,42 @@ export default function TaskScheduler() {
                 </div>
 
                 {/* Cron */}
-                <div style={{ background:'#1a1d25', border:'1px solid #23262f', borderRadius:8, padding:'10px 12px', marginBottom:12 }}>
-                  <div style={{ fontSize:10, color:'#6b7080', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace', marginBottom:4 }}>
+                <div style={{ background: '#1a1d25', border: '1px solid #23262f', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: '#6b7080', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'DM Mono,monospace', marginBottom: 4 }}>
                     Schedule
                   </div>
-                  <div style={{ fontFamily:'DM Mono,monospace', fontSize:12, color:'#4f8ef7' }}>
+                  <div style={{ fontFamily: 'DM Mono,monospace', fontSize: 12, color: '#4f8ef7' }}>
                     {task.cron_expression}
                   </div>
                 </div>
 
                 {/* Times */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12, fontSize:11 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12, fontSize: 11 }}>
                   <div>
-                    <span style={{ color:'#6b7080' }}>Last run</span>
-                    <div style={{ color:'#e8eaf0', fontFamily:'DM Mono,monospace', fontSize:10, marginTop:2 }}>
+                    <span style={{ color: '#6b7080' }}>Last run</span>
+                    <div style={{ color: '#e8eaf0', fontFamily: 'DM Mono,monospace', fontSize: 10, marginTop: 2 }}>
                       {task.last_run ? new Date(task.last_run).toLocaleDateString() : '—'}
                     </div>
                   </div>
                   <div>
-                    <span style={{ color:'#6b7080' }}>Next run</span>
-                    <div style={{ color:'#e8eaf0', fontFamily:'DM Mono,monospace', fontSize:10, marginTop:2 }}>
+                    <span style={{ color: '#6b7080' }}>Next run</span>
+                    <div style={{ color: '#e8eaf0', fontFamily: 'DM Mono,monospace', fontSize: 10, marginTop: 2 }}>
                       {task.next_run ? new Date(task.next_run).toLocaleDateString() : '—'}
                     </div>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Btn size="sm" onClick={() => triggerNow(task.id)}>
                     <Play size={12} /> Run Now
                   </Btn>
                   <Toggle
-                    checked={task.is_active}
+                    checked={task.status === 'active'}
                     onChange={() => toggleTask(task.id)}
                   />
-                  <Badge color={task.is_active ? 'green' : 'gray'}>
-                    {task.is_active ? 'active' : 'paused'}
+                  <Badge color={task.status === 'active' ? 'green' : 'gray'}>
+                    {task.status === 'active' ? 'active' : 'paused'}
                   </Badge>
                 </div>
               </Card>

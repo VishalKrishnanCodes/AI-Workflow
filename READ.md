@@ -1,912 +1,467 @@
-# AI Workflow Platform - Complete Developer Guide
+# AI Workflow Platform — LLM Context Guide
 
-**A full-stack platform for building, managing, and executing AI agents with tool integrations**
-
----
-
-## 🚀 Project Overview
-
-This is a comprehensive AI workflow platform that allows users to:
-- **Create AI Agents**: Build custom AI assistants with specific capabilities
-- **Configure LLMs**: Support for OpenAI, Anthropic, Groq, Ollama, and custom endpoints
-- **Add Tools**: Integrate web search, Wikipedia, Python REPL, and custom API tools
-- **Schedule Tasks**: Run agents on cron schedules or trigger them via webhooks
-- **Monitor Execution**: Track task runs with detailed logs and performance metrics
-
-### Architecture
-- **Frontend**: React + Vite with Tailwind CSS
-- **Backend**: FastAPI (Python) with PostgreSQL database
-- **AI Engine**: LangChain + LangGraph for agent execution
-- **Task Scheduling**: Celery with Redis for background jobs
-- **Containerization**: Docker for isolated agent execution
+A full-stack platform for building, managing, and executing AI agents with tool integrations, task scheduling, and a visual workflow builder.
 
 ---
 
-## 🛠 Tech Stack
+## Architecture Overview
 
-### Backend
-- **Framework**: FastAPI (async Python web framework)
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **AI/ML**: LangChain, LangGraph, LangChain Community
-- **Task Queue**: Celery with Redis
-- **Container Runtime**: Docker
-- **LLM Providers**: OpenAI, Anthropic, Groq, Ollama, Custom endpoints
+```
+Browser (React + Vite)
+    ↓  HTTP (Axios)
+FastAPI Backend  (port 8000)
+    ↓  calls
+Service Layer  (agent_service, llm_service)
+    ↓  uses
+LangGraph Agent  (agent_runner/graph_builder.py)
+    ↓  reads config from
+PostgreSQL  (via SQLAlchemy ORM)
 
-### Frontend
-- **Framework**: React 18 with Vite
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand
-- **HTTP Client**: Axios
-- **Routing**: React Router
+For scheduled/triggered tasks:
+Celery Worker → Docker Container → agent_runner/run_agent.py → FastAPI /agents/{id}
+```
 
-### DevOps
-- **Containerization**: Docker & Docker Compose
-- **Process Management**: PM2 (optional)
-- **Environment**: Python virtualenv/conda
+### Services (Docker Compose)
+| Service | Image | Port | Role |
+|---|---|---|---|
+| `postgres` | postgres:16-alpine | 5432 | Primary database |
+| `redis` | redis:7-alpine | 6379 | Celery broker + result backend |
+| `backend` | ./backend/Dockerfile | 8000 | FastAPI API server |
+| `worker` | ./backend/Dockerfile | — | Celery worker (same image, different CMD) |
+| `frontend` | node:20-alpine | 5173 | React dev server |
+| `agent-runner` | Built separately | — | Docker container for isolated agent execution |
 
----
-
-## 🏁 Quick Start
-
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- PostgreSQL 13+
-- Redis 6+
-- Docker & Docker Compose
-
-### 1. Clone & Setup
+Build the agent-runner image once:
 ```bash
-git clone <repository-url>
-cd ai-workflow-platform
+docker build -f agent_runner/Dockerfile.runner -t ai-workflow-agent-runner:latest .
 ```
 
-### 2. Backend Setup
+Start everything:
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Copy environment variables
-cp .env.example .env
-# Edit .env with your API keys and database URLs
-```
-
-### 3. Database Setup
-```bash
-# Create PostgreSQL database
-createdb ai_workflow_db
-
-# Run migrations
-alembic upgrade head
-```
-
-### 4. Frontend Setup
-```bash
-cd ../frontend
-npm install
-npm run dev
-```
-
-### 5. Start Services
-```bash
-# Terminal 1: Backend
-cd backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Terminal 2: Frontend
-cd frontend
-npm run dev
-
-# Terminal 3: Redis (if not using Docker)
-redis-server
-
-# Terminal 4: Celery Worker (optional)
-cd backend
-celery -A app.celery_worker worker --loglevel=info
-```
-
-### 6. Access the Application
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-
----
-
-## 🤖 Using Multiple LLM Providers
-
-The platform supports **multiple LLM providers** so you can switch between them when rate limits are reached or based on your needs.
-
-### Supported LLM Providers
-
-| Provider | Model Examples | Setup |
-|----------|---|---|
-| **OpenAI** | gpt-4o, gpt-4-turbo, gpt-3.5-turbo | Requires API key from https://platform.openai.com/api-keys |
-| **Anthropic** | claude-3-5-sonnet, claude-3-opus, claude-3-haiku | Requires API key from https://console.anthropic.com |
-| **Groq** | mixtral-8x7b-32768, llama2-70b-4096 | Requires API key from https://console.groq.com |
-| **Ollama** | Local LLMs (llama2, mistral, neural-chat) | Run locally without API key |
-| **Custom Endpoint** | Any LLM API endpoint | Provide your own OpenAI-compatible endpoint |
-
-### How to Add a New LLM Config via UI
-
-1. **Open Browser**: http://localhost:5174
-2. **Navigate to**: LLM Settings (top menu)
-3. **Click**: "New LLM Config"
-4. **Fill Form**:
-   - **Name**: e.g., "Claude 3.5 Sonnet"
-   - **Provider**: Select from dropdown
-   - **Model**: Model ID (e.g., `claude-3-5-sonnet-20241022`)
-   - **API Key**: Paste your provider's API key
-   - **Temperature**: 0.0-1.0 (lower = deterministic, higher = creative)
-   - **Max Tokens**: Max output length per response
-   - **Set as Default** (optional): Check if you want this as default for new agents
-
-5. **Test Connection**: Click "Test" to verify API key works
-6. **Save**: Click "Create"
-
-### How to Add via API
-
-```bash
-# Add OpenAI GPT-4o
-curl -X POST http://localhost:8000/llm/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "GPT-4o",
-    "provider": "openai",
-    "model": "gpt-4o",
-    "api_key": "sk-your-actual-key-here",
-    "temperature": 0.7,
-    "max_tokens": 2048,
-    "is_default": true
-  }'
-
-# Add Anthropic Claude
-curl -X POST http://localhost:8000/llm/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Claude 3.5 Sonnet",
-    "provider": "anthropic",
-    "model": "claude-3-5-sonnet-20241022",
-    "api_key": "sk-ant-your-actual-key-here",
-    "temperature": 0.7,
-    "max_tokens": 4096,
-    "is_default": false
-  }'
-
-# Add Groq (free tier, no API key cost)
-curl -X POST http://localhost:8000/llm/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Groq Mixtral",
-    "provider": "groq",
-    "model": "mixtral-8x7b-32768",
-    "api_key": "gsk-your-actual-key-here",
-    "temperature": 0.7,
-    "max_tokens": 2048,
-    "is_default": false
-  }'
-```
-
-### Getting API Keys
-
-#### OpenAI
-1. Visit https://platform.openai.com/api-keys
-2. Click "Create new secret key"
-3. Copy and paste into LLM config form
-
-#### Anthropic
-1. Visit https://console.anthropic.com/account/keys
-2. Create new API key
-3. Copy and paste into LLM config form
-
-#### Groq (Recommended - Free Tier)
-1. Visit https://console.groq.com/keys
-2. Create new API key (free tier available!)
-3. Copy and paste into LLM config form
-
-#### Ollama (Local - No API Key Needed)
-```bash
-# Install Ollama from https://ollama.ai
-# Then run:
-ollama run llama2
-# or
-ollama run mistral
-
-# Add to platform:
-curl -X POST http://localhost:8000/llm/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Local Llama2",
-    "provider": "ollama",
-    "model": "llama2",
-    "api_key": "",
-    "api_base_url": "http://localhost:11434",
-    "temperature": 0.7,
-    "max_tokens": 2048,
-    "is_default": false
-  }'
-```
-
-### Switching LLM for an Agent
-
-1. **Edit Agent**: Click on an agent card → "Edit" button
-2. **Select LLM**: Choose from "LLM Config" dropdown
-3. **Test**: Use Dry Run panel to test with new LLM
-4. **Save**: Changes auto-save
-
-### Performance Tips
-
-| Provider | Speed | Cost | Quality | Best For |
-|----------|-------|------|---------|----------|
-| Groq (free tier) | ⚡⚡⚡ Fast | Free | Good | Testing, high-volume |
-| Ollama (local) | ⚡⚡ Medium | Free | Good | Private/offline work |
-| Claude (Anthropic) | ⚡⚡ Medium | $$ | Excellent | Complex reasoning |
-| GPT-4o (OpenAI) | ⚡ Slower | $$$ | Excellent | Production-grade |
-
-### Handling Rate Limits
-
-When you hit rate limits on your primary LLM:
-
-1. **Keep Multiple Configs Active**: Have 2-3 LLMs configured
-2. **Rotate in Agent**: Change `llm_config_id` to an alternative
-3. **Monitor Costs**: OpenAI/Anthropic have usage dashboards
-4. **Use Groq Free Tier**: Great backup option with no rate limits
-
----
-
-## 📊 Database Schema
-
-### Core Tables
-
-#### agents
-```sql
-CREATE TABLE agents (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    status VARCHAR(50) DEFAULT 'active',
-    system_prompt TEXT,
-    workflow_config JSONB DEFAULT '{}',
-    llm_config_id UUID REFERENCES llm_configs(id),
-    tool_ids UUID[] DEFAULT '{}',
-    max_iterations INTEGER DEFAULT 10,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP
-);
-```
-
-#### llm_configs
-```sql
-CREATE TABLE llm_configs (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    provider VARCHAR(50) NOT NULL,
-    model VARCHAR(255) NOT NULL,
-    api_key TEXT,  -- Encrypted in production
-    api_base_url VARCHAR(500),
-    temperature DECIMAL(3,2) DEFAULT 0.7,
-    max_tokens INTEGER DEFAULT 2048,
-    top_p DECIMAL(3,2) DEFAULT 1.0,
-    extra_params JSONB DEFAULT '{}',
-    is_active BOOLEAN DEFAULT TRUE,
-    is_default BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP
-);
-```
-
-#### tools
-```sql
-CREATE TABLE tools (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    tool_type VARCHAR(50) NOT NULL,  -- builtin|custom|api|langchain
-    description TEXT,
-    endpoint_url VARCHAR(500),
-    http_method VARCHAR(10) DEFAULT 'POST',
-    headers JSONB DEFAULT '{}',
-    input_schema JSONB,
-    source_code TEXT,
-    is_enabled BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP
-);
-```
-
-#### tasks
-```sql
-CREATE TABLE tasks (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    agent_id UUID REFERENCES agents(id),
-    trigger_type VARCHAR(50) DEFAULT 'manual',  -- cron|manual|webhook|event
-    cron_expression VARCHAR(100),
-    input_payload JSONB DEFAULT '{}',
-    docker_image VARCHAR(255),
-    docker_env_vars JSONB DEFAULT '{}',
-    docker_timeout_seconds INTEGER DEFAULT 300,
-    status VARCHAR(50) DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP
-);
-```
-
-#### task_runs
-```sql
-CREATE TABLE task_runs (
-    id UUID PRIMARY KEY,
-    task_id UUID REFERENCES tasks(id),
-    status VARCHAR(50) DEFAULT 'pending',
-    exit_code INTEGER,
-    started_at TIMESTAMP,
-    finished_at TIMESTAMP,
-    duration_seconds INTEGER,
-    container_id VARCHAR(255),
-    logs TEXT,
-    error_message TEXT,
-    triggered_by VARCHAR(50) DEFAULT 'manual',
-    created_at TIMESTAMP DEFAULT NOW()
-);
+docker compose up --build
 ```
 
 ---
 
-## 🔌 API Reference
+## Tech Stack
 
-### Base URL: `http://localhost:8000`
-
-### Agents API
-```
-GET    /agents/              # List all agents
-POST   /agents/              # Create new agent
-GET    /agents/{id}          # Get agent details
-PUT    /agents/{id}          # Update agent
-DELETE /agents/{id}          # Delete agent
-PATCH  /agents/{id}/toggle   # Enable/disable agent
-POST   /agents/{id}/dry-run  # Test agent with prompt
-```
-
-### LLM Configuration API
-```
-GET    /llm/                 # List LLM configs
-POST   /llm/                 # Create LLM config
-PUT    /llm/{id}             # Update LLM config
-DELETE /llm/{id}            # Delete LLM config
-POST   /llm/{id}/test        # Test LLM connection
-```
-
-### Tools API
-```
-GET    /tools/               # List all tools
-POST   /tools/               # Create new tool
-GET    /tools/{id}           # Get tool details
-PUT    /tools/{id}           # Update tool
-DELETE /tools/{id}           # Delete tool
-PATCH  /tools/{id}/toggle    # Enable/disable tool
-```
-
-### Tasks API
-```
-GET    /tasks/               # List all tasks
-POST   /tasks/               # Create new task
-GET    /tasks/{id}           # Get task details
-PUT    /tasks/{id}           # Update task
-DELETE /tasks/{id}           # Delete task
-POST   /tasks/{id}/trigger   # Run task manually
-```
-
-### Task Runs API
-```
-GET    /task-runs/           # List all task runs
-GET    /task-runs/{id}       # Get run details with logs
-```
-
-### Dashboard API
-```
-GET    /dashboard/stats      # Get dashboard statistics
-```
+**Backend:** FastAPI, SQLAlchemy, PostgreSQL, Alembic, Celery, Redis, Docker SDK  
+**AI/ML:** LangChain, LangGraph (ReAct pattern), LangChain Community, LangChain Experimental  
+**LLM Providers:** OpenAI, Anthropic, Groq, Ollama, Custom endpoints  
+**Frontend:** React 18, Vite, Tailwind CSS, React Router, Axios  
 
 ---
 
-## 🏗 Development Workflow
+## Quick Start
 
-### Adding a New Feature
-
-1. **Plan the Database Changes**
-   - Add new columns/tables in `models/`
-   - Create Alembic migration: `alembic revision --autogenerate -m "add new feature"`
-
-2. **Update API Schemas**
-   - Add Pydantic models in `schemas/`
-   - Define request/response structures
-
-3. **Implement Business Logic**
-   - Add service functions in `services/`
-   - Handle validation and data processing
-
-4. **Create API Endpoints**
-   - Add routes in `routers/`
-   - Wire up dependencies and error handling
-
-5. **Update Frontend**
-   - Add React components
-   - Connect to new API endpoints
-   - Update state management
-
-### Common Development Tasks
-
-#### Adding a New LLM Provider
-1. Update `llm_service.py` `_build_llm()` function
-2. Add provider validation in schemas
-3. Test with provider's API documentation
-
-#### Adding a New Tool Type
-1. Update `ToolType` enum in `models/tool.py`
-2. Add tool creation logic in `graph_builder.py`
-3. Update tool schemas and validation
-
-#### Adding a New Built-in Tool
-1. Add case in `graph_builder.py` `_get_builtin_tool()`
-2. Import required LangChain tool
-3. Test tool execution in dry-run
-
----
-
-## 🐳 Deployment
-
-### Docker Compose (Recommended)
+### Docker (recommended)
 ```bash
-# Production deployment
-docker-compose up -d
-
-# Development with hot reload
-docker-compose -f docker-compose.dev.yml up
+docker compose up --build
+# Frontend: http://localhost:5173
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
 ```
 
-### Manual Deployment
+### Local Dev
 ```bash
 # Backend
 cd backend
 pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Frontend (build for production)
+# Celery worker (separate terminal)
+celery -A app.celery_worker.celery_app worker --loglevel=info --concurrency=4
+
+# Frontend (separate terminal)
 cd frontend
-npm run build
-# Serve dist/ with nginx or similar
-```
-
-### Environment Variables
-```bash
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/ai_workflow_db
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/0
-
-# LLM API Keys
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GROQ_API_KEY=gsk_...
-
-# Docker
-DOCKER_RUNNER_IMAGE=ai-workflow-runner:latest
-
-# Security
-SECRET_KEY=your-secret-key-here
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
-```
-
----
-
-## 📁 Detailed File Guide
-
-### PROJECT ROOT
-```
-ai-workflow-platform/
-├── backend/                 # FastAPI backend application
-├── frontend/               # React frontend application
-├── agent-runner/           # Docker container for agent execution
-├── docker-compose.yml      # Multi-service orchestration
-├── .env.example           # Environment variables template
-└── README.md              # This file
-```
-
----
-
-## 🎨 FRONTEND FILES
-
-### Core Structure
-```
-frontend/
-├── public/                 # Static assets
-├── src/
-│   ├── components/         # Reusable React components
-│   │   ├── agents/        # Agent management components
-│   │   ├── dashboard/     # Dashboard widgets
-│   │   ├── llm/          # LLM configuration components
-│   │   ├── scheduler/     # Task scheduling components
-│   │   ├── tools/        # Tool management components
-│   │   └── shared/       # Common UI components
-│   ├── pages/            # Main page components
-│   │   ├── AgentManagement.jsx
-│   │   ├── Dashboard.jsx
-│   │   ├── LLMSettings.jsx
-│   │   ├── TaskRunHistory.jsx
-│   │   ├── TaskScheduler.jsx
-│   │   └── ToolsManagement.jsx
-│   ├── hooks/            # Custom React hooks
-│   ├── store/            # Zustand state management
-│   ├── api/              # API client functions
-│   ├── utils/            # Utility functions
-│   ├── assets/           # Images, icons, etc.
-│   ├── index.css         # Global styles
-│   └── main.jsx          # React app entry point
-├── package.json          # Dependencies and scripts
-├── vite.config.js        # Vite configuration
-├── tailwind.config.js    # Tailwind CSS configuration
-└── index.html            # HTML template
-```
-
-### Key Frontend Components
-- **Layout.jsx**: Main app layout with navigation
-- **UI.jsx**: Reusable UI components (buttons, modals, forms)
-- **Agent Form**: Create/edit agent configurations
-- **LLM Config Form**: Manage LLM provider settings
-- **Task Scheduler**: Cron job configuration interface
-- **Dashboard Charts**: Performance metrics and statistics
-
----
-
-## 🔧 BACKEND FILES
-BACKEND FILES
-1. backend/app/core/config.py
-WHAT IT DOES:
-Reads all your environment variables (like DATABASE_URL, REDIS_URL, SECRET_KEY)
-and makes them available to every other file in the app.
-Think of it as the settings panel for the entire backend.
-KEY THINGS INSIDE:
-DATABASE_URL       → where PostgreSQL is running
-REDIS_URL          → where Redis is running
-CELERY_BROKER_URL  → Celery uses Redis as its job queue
-DOCKER_RUNNER_IMAGE → the Docker image used to execute agent tasks
-CORS_ORIGINS       → allows your React frontend to talk to FastAPI
-HOW IT'S USED:
-Every other file does: from app.core.config import settings
-Then uses: settings.DATABASE_URL, settings.REDIS_URL, etc.
----
-2. backend/app/core/database.py
-WHAT IT DOES:
-Creates the connection to your PostgreSQL database.
-Sets up SQLAlchemy (the Python library that lets you write
-Python classes instead of raw SQL).
-KEY THINGS INSIDE:
-engine         → the actual database connection
-SessionLocal   → a factory for creating DB sessions (one per request)
-Base           → all your models (tables) inherit from this
-get_db()       → a function FastAPI calls automatically to open/close
-a DB session for each API request
-HOW IT'S USED:
-Your model files do: from app.core.database import Base
-Your router files do: from app.core.database import get_db
----
-MODELS (these define your database tables)
-3. backend/app/models/agent.py
-WHAT IT DOES:
-Defines the "agents" table in PostgreSQL.
-One row = one AI agent the user has created.
-COLUMNS (fields in the table):
-id              → unique ID (UUID)
-name            → agent name e.g. "Research Agent"
-description     → what this agent does
-status          → active / inactive / draft
-workflow_config → the LangGraph workflow stored as JSON
-llm_config_id   → which LLM this agent uses (links to llm_configs table)
-tool_ids        → list of tool IDs this agent can use
-system_prompt   → the instructions given to the LLM
-created_at      → timestamp when created
-RELATIONSHIPS:
-An agent can have many Tasks (one agent → many scheduled tasks)
----
-4. backend/app/models/llm_config.py
-WHAT IT DOES:
-Defines the "llm_configs" table.
-One row = one LLM configuration the user has saved.
-(e.g. "My GPT-4 config" with API key and temperature settings)
-COLUMNS:
-id           → unique ID
-name         → friendly name e.g. "OpenAI GPT-4 Production"
-provider     → openai | anthropic | ollama | groq | custom
-model        → gpt-4o | claude-3-5-sonnet | llama3 etc.
-api_key      → stored API key (encrypt this in production!)
-api_base_url → for Ollama or custom endpoints
-temperature  → controls randomness (0.0 = deterministic, 1.0 = creative)
-max_tokens   → max length of LLM response
-is_default   → only one LLM config can be the default
----
-5. backend/app/models/tool.py
-WHAT IT DOES:
-Defines the "tools" table.
-One row = one tool an agent can use.
-COLUMNS:
-id           → unique ID
-name         → tool name e.g. "Web Search"
-tool_type    → builtin | custom | api | langchain
-endpoint_url → for API tools: the URL to call
-http_method  → GET or POST
-headers      → HTTP headers for the API call
-input_schema → what inputs this tool accepts (JSON Schema)
-source_code  → for custom tools: actual Python code
-is_enabled   → toggle on/off without deleting
----
-6. backend/app/models/task.py
-WHAT IT DOES:
-Defines the "tasks" table.
-One row = one scheduled or triggerable task.
-A task says: "Run Agent X on this schedule using this Docker image"
-COLUMNS:
-id                      → unique ID
-name                    → task name
-agent_id                → which agent to run (links to agents table)
-trigger_type            → cron | manual | webhook | event
-cron_expression         → e.g. "0 9 * * 1-5" = 9am Monday-Friday
-input_payload           → the data/prompt sent to the agent when it runs
-docker_image            → which Docker image to use for execution
-docker_env_vars         → environment variables passed into the container
-docker_timeout_seconds  → kill the container after this many seconds
-status                  → active | paused | draft
----
-7. backend/app/models/task_run.py
-WHAT IT DOES:
-Defines the "task_runs" table.
-One row = one actual execution of a task (the run history).
-Every time a task runs, a new row is created here.
-COLUMNS:
-id               → unique ID
-task_id          → which task this run belongs to
-status           → pending | running | success | failed | timeout | cancelled
-exit_code        → 0 = success, anything else = error
-started_at       → when execution started
-finished_at      → when it completed
-duration_seconds → how long it took
-container_id     → Docker container ID that ran this
-logs             → all stdout/stderr output from the container
-error_message    → if it failed, why
-triggered_by     → manual | cron | webhook
----
-8. backend/app/models/init.py
-WHAT IT DOES:
-A simple file that imports all models into one place.
-This means other files can do: from app.models import Agent, Task
-instead of importing from each individual file.
----
-SCHEMAS (these validate API request/response data)
-9. backend/app/schemas/agent.py
-WHAT IT DOES:
-Defines the shape (structure) of data for Agent API calls.
-Pydantic checks that every request and response matches these rules.
-CLASSES INSIDE:
-AgentCreate    → what fields are required when CREATING an agent (POST body)
-AgentUpdate    → what fields can be changed when EDITING an agent (PUT body)
-AgentResponse  → what fields are returned when you GET an agent
-DryRunRequest  → the input_prompt sent for a dry run test
-DryRunResponse → the output, steps taken, duration returned after dry run
-WHY SEPARATE FROM MODELS:
-Models = database shape
-Schemas = API shape
-They are similar but NOT the same. e.g. you never want to return
-the raw api_key in an API response even if it's stored in the DB.
----
-10. backend/app/schemas/schemas.py
-WHAT IT DOES:
-Same as agent.py but covers all other resources:
-LLMConfig, Tool, Task, TaskRun, and Dashboard.
-CLASSES INSIDE:
-LLMConfigCreate / LLMConfigUpdate / LLMConfigResponse
-LLMTestResponse     → { success: true, latency_ms: 240 }
-ToolCreate / ToolUpdate / ToolResponse
-TaskCreate / TaskUpdate / TaskResponse
-TaskTriggerResponse → returned when you manually trigger a task
-TaskRunResponse     → one row of run history
-DashboardStats      → all the counters for the dashboard page
----
-ROUTERS (these are your API endpoints)
-11. backend/app/routers/agents.py
-WHAT IT DOES:
-Registers the /agents API endpoints.
-When your React frontend calls the API, these functions handle it.
-ENDPOINTS INSIDE:
-GET    /agents/              → list all agents
-POST   /agents/              → create a new agent
-GET    /agents/{id}          → get one agent by ID
-PUT    /agents/{id}          → edit an agent
-DELETE /agents/{id}          → delete an agent
-PATCH  /agents/{id}/toggle   → enable/disable an agent
-POST   /agents/{id}/dry-run  → test the agent with a prompt
----
-12. backend/app/routers/routers.py
-WHAT IT DOES:
-Registers ALL other API endpoints in one file:
-LLM, Tools, Tasks, Task Runs, and Dashboard.
-ENDPOINTS INSIDE:
-LLM:
-GET    /llm/                  → list all LLM configs
-POST   /llm/                  → add a new LLM config
-PUT    /llm/{id}              → edit an LLM config
-DELETE /llm/{id}              → delete an LLM config
-POST   /llm/{id}/test         → test if the API key works
-Tools:
-GET    /tools/                → list all tools
-POST   /tools/                → create a tool
-PUT    /tools/{id}            → edit a tool
-DELETE /tools/{id}            → delete a tool
-PATCH  /tools/{id}/toggle     → enable/disable a tool
-Tasks:
-GET    /tasks/                → list all tasks
-POST   /tasks/                → create a task
-GET    /tasks/{id}            → get one task
-PUT    /tasks/{id}            → edit a task
-DELETE /tasks/{id}            → delete a task
-POST   /tasks/{id}/trigger    → manually run a task NOW
-Task Runs (history):
-GET    /task-runs/            → list all run history
-GET    /task-runs/{id}        → get one run with full logs
-Dashboard:
-GET    /dashboard/stats       → all counts + recent runs for dashboard
----
-SERVICES (business logic, called by routers)
-13. backend/app/services/agent_service.py
-WHAT IT DOES:
-Contains the logic for running an agent dry run.
-The router receives the HTTP request, then calls this service
-to do the actual AI execution work.
-FUNCTION: run_dry_run(agent, input_prompt, override_params, db)
-Loads the agent's LLM config from the database
-Loads the agent's tools from the database
-Calls graph_builder.py to build the LangGraph workflow
-Runs the workflow with the user's input prompt
-Streams through each step (node in the graph)
-Returns the final output + all intermediate steps
----
-14. backend/app/services/llm_service.py
-WHAT IT DOES:
-Two jobs:
-_build_llm() → takes a stored LLMConfig and builds a real
-LangChain LLM object (ChatOpenAI, ChatAnthropic, etc.)
-test_llm_connection() → sends a tiny "Say ok" message to verify
-the API key and connection work
-SUPPORTED PROVIDERS:
-openai    → uses langchain_openai.ChatOpenAI
-anthropic → uses langchain_anthropic.ChatAnthropic
-groq      → uses langchain_groq.ChatGroq
-ollama    → uses ChatOpenAI pointed at local Ollama URL
-custom    → uses ChatOpenAI with a custom base_url
----
-AGENT RUNNER
-15. backend/app/agent_runner/graph_builder.py
-WHAT IT DOES:
-This is the core LangGraph logic.
-It builds a ReAct-style agent workflow graph.
-HOW IT WORKS (step by step):
-Takes the Agent config, LLMConfig, and list of Tools
-Builds the LLM using llm_service._build_llm()
-Converts DB tool records into real LangChain tool objects
-Creates a StateGraph with two nodes:
-"agent" node → calls the LLM
-"tools" node → executes whatever tool the LLM decided to call
-Adds a conditional edge:
-If the LLM returned tool_calls → go to "tools" node
-If the LLM returned a final answer → go to END
-Returns the compiled graph
-THE LOOP (ReAct pattern):
-User prompt → agent thinks → calls a tool → sees result →
-agent thinks again → calls another tool OR gives final answer → END
-BUILTIN TOOLS SUPPORTED:
-web_search   → DuckDuckGo search
-wikipedia    → Wikipedia lookup
-python_repl  → runs Python code
-(more can be added in _get_builtin_tool function)
----
-WHAT FILES ARE STILL NEEDED (next to be created)
-backend/app/celery_worker/tasks.py  → the Celery task that spawns Docker
-backend/app/main.py                 → FastAPI app entry point
-backend/requirements.txt            → all Python dependencies
-backend/Dockerfile                  → containerize the API
-docker-compose.yml                  → run everything together
-.env.example                        → environment variable template
-frontend/...                        → all React screens
----
-QUICK MENTAL MAP
-Browser (React)
-↓  HTTP request
-FastAPI Router  (routers/agents.py, routers/routers.py)
-↓  calls
-Service Layer   (services/agent_service.py, services/llm_service.py)
-↓  uses
-LangGraph       (agent_runner/graph_builder.py)
-↓  reads config from
-Database        (models/*.py via core/database.py)
-↓  runs in
-PostgreSQL      (configured in core/config.py)
-For scheduled tasks:
-Task Scheduler → Celery Worker → Docker Container → agent_runner#### LLM API Key Issues
-```bash
-# Test LLM connection via API
-curl -X POST "http://localhost:8000/llm/{id}/test" \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-#### Tool Execution Failures
-- Check tool configurations in database
-- Verify API keys for external services (DuckDuckGo, etc.)
-- Review agent logs in task_runs table
-
-#### Frontend Build Issues
-```bash
-cd frontend
-rm -rf node_modules package-lock.json
 npm install
 npm run dev
 ```
 
-### Debug Commands
+### Environment Variables (`backend/.env`)
 ```bash
-# Check backend logs
-cd backend
-python -m uvicorn app.main:app --reload --log-level debug
-
-# Check database contents
-psql -U postgres -d ai_workflow_db -c "SELECT * FROM agents;"
-
-# Test API endpoints
-curl http://localhost:8000/health
-curl http://localhost:8000/docs
-
-# Check Redis connection
-redis-cli ping
+DATABASE_URL=postgresql://user:pass@localhost:5432/ai_workflow
+REDIS_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/1
+DOCKER_RUNNER_IMAGE=ai-workflow-agent-runner:latest
+DOCKER_NETWORK=ai_workflow_network
+DOCKER_API_BASE_URL=http://host.docker.internal:8000
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
 ```
 
 ---
 
-## 🤝 Contributing
+## Project File Structure
 
-### Code Style
-- **Backend**: Black formatter, isort imports, type hints required
-- **Frontend**: ESLint, Prettier
-- **Commits**: Conventional commits format
-
-### Testing
-```bash
-# Backend tests
-cd backend
-pytest
-
-# Frontend tests
-cd frontend
-npm test
-
-# Integration tests
-docker-compose -f docker-compose.test.yml up
+```
+ai-workflow-platform/
+├── docker-compose.yml
+├── .env
+├── agent_runner/                    # Standalone Docker agent runner
+│   ├── Dockerfile.runner
+│   ├── run_agent.py                 # Entry point inside the container
+│   ├── graph_builder.py             # LangGraph logic (mirrors backend version)
+│   └── requirements-runner.txt
+├── backend/
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── alembic.ini
+│   ├── alembic/                     # DB migrations
+│   └── app/
+│       ├── main.py                  # FastAPI app entry point
+│       ├── core/
+│       │   ├── config.py            # Settings (reads .env)
+│       │   ├── database.py          # SQLAlchemy engine + SessionLocal + Base
+│       │   └── seed.py              # Seeds default data on startup
+│       ├── models/                  # SQLAlchemy ORM table definitions
+│       │   ├── agent.py
+│       │   ├── llm_config.py
+│       │   ├── tool.py
+│       │   ├── skill.py
+│       │   ├── task.py
+│       │   └── task_run.py
+│       ├── schemas/                 # Pydantic request/response schemas
+│       │   ├── agent.py
+│       │   ├── llm_config.py
+│       │   ├── tool.py
+│       │   ├── skill.py
+│       │   ├── task.py
+│       │   └── task_run.py
+│       ├── routers/                 # FastAPI route handlers
+│       │   ├── agents.py
+│       │   ├── llm.py
+│       │   ├── tools.py
+│       │   ├── skill.py
+│       │   ├── tasks.py
+│       │   ├── task_runs.py
+│       │   ├── dashboard.py
+│       │   └── workflows.py
+│       ├── services/
+│       │   ├── agent_service.py     # Dry run logic
+│       │   └── llm_service.py       # Builds LangChain LLM objects + tests connection
+│       ├── agent_runner/
+│       │   ├── graph_builder.py     # Core LangGraph ReAct graph builder
+│       │   └── tools/
+│       │       ├── web_scraper_tool.py
+│       │       └── code_tester_tool.py
+│       └── celery_worker/
+│           ├── celery_app.py        # Celery app instance
+│           ├── tasks.py             # execute_task: spawns Docker container
+│           └── scheduler.py        # Celery Beat schedule config
+└── frontend/
+    ├── index.html
+    ├── vite.config.js
+    ├── tailwind.config.js
+    └── src/
+        ├── main.jsx
+        ├── App.jsx                  # Routes definition
+        ├── index.css
+        ├── api/                     # Axios API client functions
+        │   ├── client.js            # Axios base instance (VITE_API_URL)
+        │   ├── agents.js
+        │   ├── llm.js
+        │   ├── tools.js
+        │   ├── skills.js
+        │   ├── tasks.js
+        │   ├── taskRuns.js
+        │   ├── runs.js
+        │   └── workflows.js
+        ├── pages/                   # One file per route
+        │   ├── Dashboard.jsx
+        │   ├── AgentManagement.jsx
+        │   ├── LLMSettings.jsx
+        │   ├── ToolsManagement.jsx
+        │   ├── WorkflowBuilder.jsx
+        │   ├── TaskScheduler.jsx
+        │   └── TaskRunHistory.jsx
+        └── components/
+            └── shared/
+                ├── Layout.jsx       # Nav + page wrapper
+                └── UI.jsx           # Reusable UI primitives
 ```
 
-### Documentation
-- Update this README for new features
-- Add docstrings to all functions
-- Update API schemas for new endpoints
+---
+
+## Database Schema
+
+### `agents`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(255) | |
+| description | TEXT | |
+| status | ENUM | `active` / `inactive` / `draft` |
+| system_prompt | TEXT | Instructions given to the LLM |
+| workflow_config | JSON | LangGraph workflow definition |
+| llm_config_id | UUID | FK → llm_configs |
+| tool_ids | JSON | Array of Tool UUIDs |
+| skill_ids | JSON | Array of Skill UUIDs |
+| domain | VARCHAR(100) | Optional domain tag |
+| max_iterations | VARCHAR(10) | Max ReAct loop iterations |
+| created_at / updated_at | TIMESTAMP | |
+
+### `llm_configs`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(255) | Friendly name |
+| provider | VARCHAR(50) | `openai` / `anthropic` / `groq` / `ollama` / `custom` |
+| model | VARCHAR(255) | e.g. `gpt-4o`, `claude-3-5-sonnet-20241022` |
+| api_key | TEXT | Stored in plaintext — encrypt in production |
+| api_base_url | VARCHAR(500) | For Ollama or custom endpoints |
+| temperature | DECIMAL(3,2) | 0.0–1.0 |
+| max_tokens | INTEGER | |
+| is_default | BOOLEAN | Only one can be default |
+| is_active | BOOLEAN | |
+
+### `tools`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(255) | |
+| tool_type | ENUM | `builtin` / `api` / `custom` / `langchain` |
+| description | TEXT | |
+| endpoint_url | VARCHAR(500) | For `api` type tools |
+| http_method | VARCHAR(10) | GET / POST |
+| headers | JSON | HTTP headers |
+| input_schema | JSON | JSON Schema for inputs |
+| source_code | TEXT | For `custom` type — must define `get_tool()` returning a `BaseTool` |
+| is_enabled | BOOLEAN | |
+
+### `skills`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(255) UNIQUE | |
+| description | TEXT | Shown to user when selecting |
+| category | VARCHAR(100) | e.g. `reasoning`, `analysis`, `code` |
+| system_instruction | TEXT | Injected into agent system prompt |
+| is_enabled | BOOLEAN | |
+
+### `tasks`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(255) | |
+| agent_id | UUID | FK → agents |
+| trigger_type | ENUM | `cron` / `manual` / `webhook` / `event` |
+| cron_expression | VARCHAR(100) | e.g. `0 9 * * 1-5` |
+| input_payload | JSON | Prompt + config sent to the agent |
+| docker_image | VARCHAR(255) | Defaults to `ai-workflow-agent-runner:latest` |
+| docker_env_vars | JSON | Extra env vars for the container |
+| docker_timeout_seconds | VARCHAR | Kill container after N seconds |
+| status | ENUM | `active` / `paused` / `draft` |
+| last_run_at | TIMESTAMP | |
+
+### `task_runs`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| task_id | UUID | FK → tasks |
+| status | ENUM | `pending` / `running` / `success` / `failed` / `timeout` / `cancelled` |
+| exit_code | INTEGER | 0 = success |
+| started_at / finished_at | TIMESTAMP | |
+| duration_seconds | INTEGER | |
+| container_id | VARCHAR(255) | Docker container ID |
+| docker_image | VARCHAR(255) | Image used for this run |
+| logs | TEXT | Full stdout/stderr from container |
+| error_message | TEXT | Last 500 chars of logs on failure |
+| triggered_by | VARCHAR(50) | `manual` / `cron` / `webhook` |
 
 ---
 
-## 📚 Additional Resources
+## API Reference
 
-- **FastAPI Docs**: https://fastapi.tiangolo.com/
-- **LangChain Docs**: https://python.langchain.com/
-- **LangGraph Docs**: https://langchain-ai.github.io/langgraph/
-- **React Docs**: https://react.dev/
-- **SQLAlchemy Docs**: https://sqlalchemy.org/
+Base URL: `http://localhost:8000`  
+Interactive docs: `http://localhost:8000/docs`
+
+### Agents `/agents`
+```
+GET    /agents/              List all agents
+POST   /agents/              Create agent
+GET    /agents/{id}          Get agent
+PUT    /agents/{id}          Update agent
+DELETE /agents/{id}          Delete agent
+PATCH  /agents/{id}/toggle   Enable / disable
+POST   /agents/{id}/dry-run  Test agent with a prompt (runs in-process, no Docker)
+```
+
+### LLM Configs `/llm`
+```
+GET    /llm/                 List configs
+POST   /llm/                 Create config
+PUT    /llm/{id}             Update config
+DELETE /llm/{id}             Delete config
+POST   /llm/{id}/test        Test API key / connection
+```
+
+### Tools `/tools`
+```
+GET    /tools/               List tools
+POST   /tools/               Create tool
+PUT    /tools/{id}           Update tool
+DELETE /tools/{id}           Delete tool
+PATCH  /tools/{id}/toggle    Enable / disable
+```
+
+### Skills `/skills`
+```
+GET    /skills/              List skills
+POST   /skills/              Create skill
+PUT    /skills/{id}          Update skill
+DELETE /skills/{id}          Delete skill
+```
+
+### Tasks `/tasks`
+```
+GET    /tasks/               List tasks
+POST   /tasks/               Create task
+GET    /tasks/{id}           Get task
+PUT    /tasks/{id}           Update task
+DELETE /tasks/{id}           Delete task
+POST   /tasks/{id}/trigger   Manually trigger task (spawns Docker container via Celery)
+```
+
+### Task Runs `/task-runs`
+```
+GET    /task-runs/           List run history
+GET    /task-runs/{id}       Get run with full logs
+```
+
+### Workflows `/workflows`
+```
+POST   /workflows/dry-run    Run a workflow config without saving
+POST   /workflows/save       Save workflow as a draft Task
+GET    /workflows/           List saved workflows
+GET    /workflows/{id}       Get single workflow
+```
+
+### Dashboard `/dashboard`
+```
+GET    /dashboard/stats      Counts + recent runs for the dashboard page
+```
+
+### Health
+```
+GET    /health               { status: "ok" }
+GET    /                     { message: "AI Workflow API is running" }
+```
 
 ---
 
-*This guide is maintained by Vishal. Last updated: April 1st 2026*
+## Core Backend Logic
+
+### `app/core/config.py`
+Reads all env vars via `pydantic-settings`. Every other file imports `from app.core.config import settings`.
+
+### `app/core/database.py`
+Creates the SQLAlchemy `engine`, `SessionLocal` factory, and `Base` class. `get_db()` is a FastAPI dependency that opens/closes a DB session per request.
+
+### `app/core/seed.py`
+Runs on startup. Seeds default agents, tools, LLM configs if the DB is empty.
+
+### `app/services/llm_service.py`
+- `_build_llm(llm_config)` → returns a LangChain chat model (`ChatOpenAI`, `ChatAnthropic`, `ChatGroq`, etc.)
+- `test_llm_connection(llm_config)` → sends a tiny test message and returns `{ success, latency_ms }`
+
+### `app/agent_runner/graph_builder.py` — Core AI Logic
+Builds a LangGraph ReAct-style agent graph.
+
+**ReAct loop:**
+```
+User prompt → agent node (LLM) → tool_calls? → tools node → back to agent → ... → final answer → END
+```
+
+**Tool types supported:**
+- `builtin`: `web_search` (DuckDuckGo), `wikipedia`, `python_repl`, `web_scraper`, `code_tester`
+- `api`: wraps any HTTP endpoint as a callable tool
+- `custom`: executes user-written Python; code must define `get_tool() -> BaseTool`
+
+**Groq special handling:** Groq doesn't support native tool binding, so the graph uses a text-based `TOOL: <name> <params>` format parsed from the LLM response.
+
+**Skills:** Skill `system_instruction` fields are appended to the agent's system prompt before the graph runs.
+
+### `app/celery_worker/tasks.py` — Task Execution
+`execute_task(task_id, run_id)` Celery task:
+1. Loads Task + TaskRun from DB
+2. Marks run as `running`
+3. Spawns a Docker container (`ai-workflow-agent-runner:latest`) with env vars: `TASK_ID`, `RUN_ID`, `AGENT_ID`, `API_BASE_URL`
+4. Waits for container exit (with timeout)
+5. Collects stdout/stderr logs
+6. Updates TaskRun: `status`, `exit_code`, `logs`, `duration_seconds`
+
+Container limits: `mem_limit=512m`, CPU capped at 50% of one core.
+
+---
+
+## Frontend Routes
+
+| Path | Page | Description |
+|---|---|---|
+| `/` | Dashboard | Stats overview + recent runs |
+| `/agents` | AgentManagement | Create/edit/delete agents, dry run |
+| `/llm` | LLMSettings | Manage LLM provider configs |
+| `/tools` | ToolsManagement | Manage tools (builtin, API, custom) |
+| `/workflows` | WorkflowBuilder | Visual workflow builder + dry run |
+| `/scheduler` | TaskScheduler | Create/manage scheduled tasks |
+| `/history` | TaskRunHistory | View run logs and history |
+
+Frontend API calls go through `src/api/client.js` (Axios instance pointed at `VITE_API_URL`, default `http://localhost:8000`).
+
+---
+
+## LLM Providers
+
+| Provider | `provider` value | Notes |
+|---|---|---|
+| OpenAI | `openai` | Requires `api_key` |
+| Anthropic | `anthropic` | Requires `api_key` |
+| Groq | `groq` | Requires `api_key`; no native tool binding — uses text-based tool format |
+| Ollama | `ollama` | No API key; set `api_base_url` to `http://localhost:11434` |
+| Custom | `custom` | OpenAI-compatible endpoint; set `api_base_url` |
+
+---
+
+## Adding New Features
+
+### New LLM Provider
+1. Update `_build_llm()` in `app/services/llm_service.py`
+2. Add provider to the `provider` enum/validation in schemas
+
+### New Built-in Tool
+1. Add a case in `_get_builtin_tool()` in `app/agent_runner/graph_builder.py`
+2. Add the tool name to the seed data or register it via the Tools API
+
+### New Custom Tool (via UI)
+- Tool type: `custom`
+- Source code must define: `def get_tool() -> BaseTool: ...`
+
+### New API Tool (via UI)
+- Tool type: `api`
+- Provide `endpoint_url`, `http_method`, optional `headers`
+- The tool will POST `{ "input": "<user_input>" }` to the endpoint
+
+---
+
+## Common Issues
+
+**LLM API key not working:**
+```bash
+curl -X POST http://localhost:8000/llm/{id}/test
+```
+
+**Frontend can't reach backend:**  
+Check `VITE_API_URL` in frontend env and `CORS_ORIGINS` in backend config.
+
+**Docker container fails to start:**  
+Make sure the agent-runner image is built: `docker build -f agent_runner/Dockerfile.runner -t ai-workflow-agent-runner:latest .`
+
+**Database reset:**
+```bash
+python backend/reset_db.py
+```
+
+---
+
+*Last updated: April 8, 2026*

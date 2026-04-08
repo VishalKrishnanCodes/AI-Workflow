@@ -23,7 +23,7 @@
 #     - Runs the agent with the task's input_payload
 #     - Prints logs to stdout (captured here)
 
-import docker
+import docker, time
 from datetime import datetime, timezone
 
 from app.celery_worker.celery_app import celery_app
@@ -34,6 +34,7 @@ from app.models.task_run import TaskRun, RunStatus
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def execute_task(self, task_id: str, run_id: str):
+    time.sleep(1)
     """
     Celery task that spawns a Docker container to run an AI agent.
 

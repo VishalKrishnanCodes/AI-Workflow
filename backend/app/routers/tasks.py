@@ -58,6 +58,8 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Task not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(task, field, value)
+        if field == "cron_expression":
+            task.next_run_at = None
     db.commit()
     db.refresh(task)
     return task
