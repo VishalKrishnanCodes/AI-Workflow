@@ -13,6 +13,7 @@
 #   GET  /workflows/{id}      → get a single workflow-task with full config
 
 import time
+import re
 import uuid as uuid_lib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -80,9 +81,106 @@ class WorkflowSaveRequest(BaseModel):
     workflow_config:  Optional[WorkflowConfig] = None
     docker_image:     Optional[str] = "ai-workflow-agent-runner:latest"
     docker_timeout_seconds: Optional[str] = "300"
+    cron_expression:  Optional[str] = None   # extracted by LLM from use case
 
 
-# ── Dry Run ────────────────────────────────────────────────────────────────────
+class CronExtractRequest(BaseModel):
+    use_case:      str
+    llm_config_id: Optional[str] = None
+
+
+# ── Extract cron from use case via LLM ────────────────────────────────────────
+
+@router.post("/extract-cron")
+async def extract_cron(payload: CronExtractRequest, db: Session = Depends(get_db)):
+    """
+    Sends the use case text to the LLM and asks it to extract a cron expression.
+    Returns { cron_expression, human_readable, found } so the frontend can
+    display it and pass it through to the save call.
+    """
+    # Try to load the requested LLM config, fall back to the default
+    llm_config = None
+    if payload.llm_config_id:
+        llm_config = db.query(LLMConfig).filter(LLMConfig.id == payload.llm_config_id).first()
+    if not llm_config:
+        llm_config = db.query(LLMConfig).filter(LLMConfig.is_default == True).first()
+    if not llm_config:
+        llm_config = db.query(LLMConfig).first()
+    if not llm_config:
+        return {"cron_expression": None, "human_readable": None, "found": False,
+                "error": "No LLM configured. Add one in LLM Settings first."}
+
+    prompt = f"""You are a cron expression generator. Analyse the following task description and extract any scheduling information (time, frequency, day of week, etc.).
+
+Task description:
+\"\"\"{payload.use_case}\"\"\"
+
+If the description mentions a specific schedule, respond with ONLY a valid 5-field cron expression (minute hour day month weekday) and nothing else.
+Examples:
+- "every day at 7pm"  → 0 19 * * *
+- "every Monday at 9am" → 0 9 * * 1
+- "every weekday at 8:30am" → 30 8 * * 1-5
+- "every hour" → 0 * * * *
+- "every night at midnight" → 0 0 * * *
+
+If no schedule is mentioned, respond with exactly: NONE"""
+
+    try:
+        from app.services.llm_service import _build_llm
+        llm = _build_llm(llm_config)
+        response = llm.invoke(prompt)
+        raw = response.content.strip() if hasattr(response, "content") else str(response).strip()
+
+        if raw.upper() == "NONE" or not raw:
+            return {"cron_expression": None, "human_readable": None, "found": False}
+
+        # Validate it looks like a cron expression (5 whitespace-separated fields)
+        cron = raw.split("\n")[0].strip()  # take first line only
+        fields = cron.split()
+        if len(fields) != 5:
+            return {"cron_expression": None, "human_readable": None, "found": False}
+
+        # Build a simple human-readable label
+        human = _describe_cron(cron)
+        return {"cron_expression": cron, "human_readable": human, "found": True}
+
+    except Exception as exc:
+        return {"cron_expression": None, "human_readable": None, "found": False,
+                "error": str(exc)}
+
+
+def _describe_cron(expr: str) -> str:
+    """Converts a cron expression into a short human-readable string."""
+    try:
+        min_, hour, dom, month, dow = expr.split()
+        DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+        def fmt_time(h, m):
+            h, m = int(h), int(m)
+            suffix = 'AM' if h < 12 else 'PM'
+            h12 = h % 12 or 12
+            return f"{h12}:{str(m).padStart(2,'0') if False else str(m).zfill(2)} {suffix}"
+
+        if min_ == '*' and hour == '*':
+            return 'Every minute'
+        if re.match(r'^\*/\d+$', min_) and hour == '*':
+            return f"Every {min_[2:]} minutes"
+        if min_ == '0' and re.match(r'^\*/\d+$', hour):
+            return f"Every {hour[2:]} hours"
+
+        time_str = fmt_time(hour, min_) if hour.isdigit() and min_.isdigit() else f"{hour}:{min_}"
+
+        if dow == '*' and dom == '*':
+            return f"Daily at {time_str}"
+        if dow == '1-5':
+            return f"Weekdays at {time_str}"
+        if dow == '0,6' or dow == '6,0':
+            return f"Weekends at {time_str}"
+        if dow.isdigit() and 0 <= int(dow) <= 6:
+            return f"Every {DAYS[int(dow)]} at {time_str}"
+        return expr
+    except Exception:
+        return expr
 
 @router.post("/dry-run")
 async def workflow_dry_run(
@@ -215,8 +313,9 @@ def save_workflow(payload: WorkflowSaveRequest, db: Session = Depends(get_db)):
         name=payload.name,
         description=payload.use_case,
         agent_id=payload.agent_id,
-        trigger_type=TriggerType.manual,
+        trigger_type=TriggerType.cron if payload.cron_expression else TriggerType.manual,
         status=TaskStatus.draft,
+        cron_expression=payload.cron_expression or None,
         docker_image=payload.docker_image or "ai-workflow-agent-runner:latest",
         docker_timeout_seconds=payload.docker_timeout_seconds or "300",
         input_payload={
@@ -231,10 +330,15 @@ def save_workflow(payload: WorkflowSaveRequest, db: Session = Depends(get_db)):
     db.refresh(task)
 
     return {
-        "id":      str(task.id),
-        "name":    task.name,
-        "status":  task.status,
-        "message": "Workflow saved as a draft task. Go to Scheduler to activate it.",
+        "id":              str(task.id),
+        "name":            task.name,
+        "status":          task.status,
+        "cron_expression": task.cron_expression,
+        "message": (
+            f"Workflow saved with schedule '{task.cron_expression}'. Go to Scheduler to activate it."
+            if task.cron_expression
+            else "Workflow saved as a draft task. Go to Scheduler to activate it."
+        ),
     }
 
 

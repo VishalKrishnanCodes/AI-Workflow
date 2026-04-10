@@ -230,15 +230,15 @@ export default function AgentManagement() {
           <div style={{ display:'flex', flexDirection:'column', gap:20, marginBottom:24 }}>
             {sortedDomains.map(domain => (
               <div key={domain}>
-                <div style={{ marginBottom:8, fontSize:14, fontWeight:700, color:'#4f8ef7' }}>{domain}</div>
+                <div style={{ marginBottom:8, fontSize:14, fontWeight:700, color:'var(--accent)' }}>{domain}</div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14 }}>
                   {groupedAgents[domain].map(agent => (
                     <div
                       key={agent.id}
                       onClick={() => { setSelectedAgent(agent); setDryResult(null) }}
                       style={{
-                        background: selectedAgent?.id === agent.id ? 'rgba(79,142,247,.06)' : '#111318',
-                        border: `1px solid ${selectedAgent?.id === agent.id ? 'rgba(79,142,247,.4)' : '#23262f'}`,
+                        background: selectedAgent?.id === agent.id ? 'rgba(79,142,247,.06)' : 'var(--bg2)',
+                        border: `1px solid ${selectedAgent?.id === agent.id ? 'rgba(79,142,247,.4)' : 'var(--bd)'}`,
                         borderRadius:14, padding:18, cursor:'pointer',
                         transition:'all .2s',
                       }}
@@ -259,20 +259,20 @@ export default function AgentManagement() {
                             onChange={() => toggleAgent(agent.id)}
                           />
                           <button onClick={() => openEdit(agent)}
-                            style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}>
+                            style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', padding:4 }}>
                             <Edit size={13} />
                           </button>
                           <button onClick={() => deleteAgent(agent.id)}
-                            style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:4 }}>
+                            style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', padding:4 }}>
                             <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
 
-                      <div style={{ fontFamily:'Syne,sans-serif', fontSize:15, fontWeight:700, marginBottom:4 }}>
+                      <div style={{ fontFamily:'Syne,sans-serif', fontSize:15, fontWeight:700, marginBottom:4, color:'var(--text)' }}>
                         {agent.name}
                       </div>
-                      <div style={{ fontSize:12, color:'#6b7080', lineHeight:1.5, marginBottom:12 }}>
+                      <div style={{ fontSize:12, color:'var(--muted)', lineHeight:1.5, marginBottom:12 }}>
                         {agent.description || 'No description'}
                       </div>
 
@@ -317,20 +317,20 @@ export default function AgentManagement() {
         )}
 
         {/* ── Dry Run Panel ── */}
-        <div style={{ background:'#111318', border:'1px solid #23262f', borderRadius:14 }}>
-          <div style={{ padding:'14px 20px', borderBottom:'1px solid #23262f', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ background:'var(--bg2)', border:'1px solid var(--bd)', borderRadius:14 }}>
+          <div style={{ padding:'14px 20px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:10 }}>
             <Zap size={14} color="#f59e0b" />
             <span style={{ fontFamily:'Syne,sans-serif', fontWeight:600, fontSize:14 }}>Dry Run</span>
             {selectedAgent && (
               <Badge color="blue">{selectedAgent.name}</Badge>
             )}
             {!selectedAgent && (
-              <span style={{ fontSize:12, color:'#6b7080' }}>← select an agent above to test it</span>
+              <span style={{ fontSize:12, color:'var(--muted)' }}>← select an agent above to test it</span>
             )}
           </div>
 
           {/* Input row */}
-          <div style={{ display:'flex', gap:10, padding:'14px 20px', borderBottom:'1px solid #23262f' }}>
+          <div style={{ display:'flex', gap:10, padding:'14px 20px', borderBottom:'1px solid var(--bd)' }}>
             <input
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
@@ -338,8 +338,8 @@ export default function AgentManagement() {
               placeholder={selectedAgent ? `Test "${selectedAgent.name}" with a prompt...` : 'Select an agent first...'}
               disabled={!selectedAgent || dryRunning}
               style={{
-                flex:1, background:'#1a1d25', border:'1px solid #23262f',
-                borderRadius:8, padding:'10px 14px', color:'#e8eaf0',
+                flex:1, background:'var(--bg3)', border:'1px solid var(--bd)',
+                borderRadius:8, padding:'10px 14px', color:'var(--text)',
                 fontSize:13, fontFamily:'DM Sans,sans-serif', outline:'none',
               }}
             />
@@ -355,13 +355,13 @@ export default function AgentManagement() {
           {/* Output area */}
           <div style={{ padding:'16px 20px', minHeight:160 }}>
             {!dryResult && !dryRunning && (
-              <div style={{ color:'#6b7080', fontSize:13, fontFamily:'DM Mono,monospace' }}>
+              <div style={{ color:'var(--muted)', fontSize:13, fontFamily:'DM Mono,monospace' }}>
                 Output will appear here…
               </div>
             )}
 
             {dryRunning && (
-              <div style={{ display:'flex', alignItems:'center', gap:10, color:'#6b7080', fontSize:13, fontFamily:'DM Mono,monospace' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, color:'var(--muted)', fontSize:13, fontFamily:'DM Mono,monospace' }}>
                 <Spinner size={14} />
                 Agent is thinking
                 <span style={{ display:'inline-flex', gap:2 }}>
@@ -377,7 +377,7 @@ export default function AgentManagement() {
                 {/* Steps */}
                 {dryResult.steps?.length > 0 && (
                   <div style={{ marginBottom:14 }}>
-                    <div style={{ fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace', marginBottom:8, textTransform:'uppercase', letterSpacing:'.8px' }}>
+                    <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace', marginBottom:8, textTransform:'uppercase', letterSpacing:'.8px' }}>
                       Execution steps
                     </div>
                     {dryResult.steps.map((step, i) => (
@@ -387,7 +387,7 @@ export default function AgentManagement() {
                           borderRadius:4, padding:'1px 8px', fontSize:11,
                           fontFamily:'DM Mono,monospace', flexShrink:0,
                         }}>{step.node}</span>
-                        <span style={{ fontSize:11, color:'#6b7080', lineHeight:1.5, fontFamily:'DM Mono,monospace' }}>
+                        <span style={{ fontSize:11, color:'var(--muted)', lineHeight:1.5, fontFamily:'DM Mono,monospace' }}>
                           {String(step.output).slice(0, 200)}
                         </span>
                       </div>
@@ -396,16 +396,16 @@ export default function AgentManagement() {
                 )}
 
                 {/* Final output */}
-                <div style={{ fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace', marginBottom:6, textTransform:'uppercase', letterSpacing:'.8px' }}>
+                <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace', marginBottom:6, textTransform:'uppercase', letterSpacing:'.8px' }}>
                   Final output — {dryResult.duration_ms}ms
                 </div>
                 <div style={{
-                  background:'#1a1d25', border:'1px solid #23262f',
+                  background:'var(--bg3)', border:'1px solid var(--bd)',
                   borderRadius:8, padding:'14px 16px',
-                  fontSize:13, color:'#e8eaf0', lineHeight:1.7,
+                  fontSize:13, color:'var(--text)', lineHeight:1.7,
                   whiteSpace:'pre-wrap', fontFamily:'DM Sans,sans-serif',
                 }}>
-                  {dryResult.output || <span style={{ color:'#6b7080' }}>(no output)</span>}
+                  {dryResult.output || <span style={{ color:'var(--muted)' }}>(no output)</span>}
                 </div>
 
                 {dryResult.error && (
@@ -499,7 +499,7 @@ export default function AgentManagement() {
 
           {/* Tool selection */}
           <div style={{ marginBottom:16 }}>
-            <label style={{ display:'block', fontSize:11, color:'#6b7080', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px', fontFamily:'DM Mono,monospace' }}>
+            <label style={{ display:'block', fontSize:11, color:'var(--muted)', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px', fontFamily:'DM Mono,monospace' }}>
               Tools — click to select
             </label>
             <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
@@ -519,10 +519,10 @@ export default function AgentManagement() {
                     }}
                     style={{
                       display:'flex', alignItems:'center', gap:6,
-                      background: selected ? 'rgba(79,142,247,.12)' : '#1a1d25',
-                      border: `1px solid ${selected ? 'rgba(79,142,247,.4)' : '#23262f'}`,
+                      background: selected ? 'rgba(79,142,247,.12)' : 'var(--bg3)',
+                      border: `1px solid ${selected ? 'rgba(79,142,247,.4)' : 'var(--bd)'}`,
                       borderRadius:7, padding:'5px 12px',
-                      fontSize:12, color: selected ? '#4f8ef7' : '#6b7080',
+                      fontSize:12, color: selected ? 'var(--accent)' : 'var(--muted)',
                       cursor:'pointer', fontFamily:'DM Mono,monospace',
                       transition:'all .15s',
                     }}
@@ -537,7 +537,7 @@ export default function AgentManagement() {
 
           {/* Skill selection */}
           <div style={{ marginBottom:16 }}>
-            <label style={{ display:'block', fontSize:11, color:'#6b7080', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px', fontFamily:'DM Mono,monospace' }}>
+            <label style={{ display:'block', fontSize:11, color:'var(--muted)', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px', fontFamily:'DM Mono,monospace' }}>
               Skills — click to select
             </label>
             <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
@@ -557,10 +557,10 @@ export default function AgentManagement() {
                     }}
                     style={{
                       display:'flex', alignItems:'center', gap:6,
-                      background: selected ? 'rgba(124,58,237,.12)' : '#1a1d25',
-                      border: `1px solid ${selected ? 'rgba(124,58,237,.4)' : '#23262f'}`,
+                      background: selected ? 'rgba(124,58,237,.12)' : 'var(--bg3)',
+                      border: `1px solid ${selected ? 'rgba(124,58,237,.4)' : 'var(--bd)'}`,
                       borderRadius:7, padding:'5px 12px',
-                      fontSize:12, color: selected ? '#7c3aed' : '#6b7080',
+                      fontSize:12, color: selected ? 'var(--accent2)' : 'var(--muted)',
                       cursor:'pointer', fontFamily:'DM Mono,monospace',
                       transition:'all .15s',
                     }}

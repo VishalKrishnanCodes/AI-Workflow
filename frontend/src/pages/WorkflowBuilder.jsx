@@ -31,13 +31,13 @@ import {
   Input, Select, Textarea, Modal, Toggle,
 } from '../components/shared/UI'
 
-// ── Colour palette reused from the design system ──────────────────────────────
+// ── Colour palette — uses CSS variables so dark/light mode works ──────────────
 const C = {
-  bg:     '#0a0b0f', bg2: '#111318', bg3: '#1a1d25',
-  bd:     '#23262f', bd2: '#2e3240',
-  text:   '#e8eaf0', muted: '#6b7080',
-  accent: '#4f8ef7', accent2: '#7c3aed',
-  green:  '#22c55e', red: '#ef4444', amber: '#f59e0b', cyan: '#06b6d4',
+  bg:     'var(--bg)',  bg2: 'var(--bg2)', bg3: 'var(--bg3)',
+  bd:     'var(--bd)',  bd2: 'var(--bd2)',
+  text:   'var(--text)', muted: 'var(--muted)',
+  accent: 'var(--accent)', accent2: 'var(--accent2)',
+  green:  'var(--green)', red: 'var(--red)', amber: 'var(--amber)', cyan: 'var(--cyan)',
 }
 
 const NODE_TYPES = {
@@ -87,6 +87,10 @@ export default function WorkflowBuilder() {
   // ── Save state ─────────────────────────────────────────────────────────────
   const [saving,      setSaving]      = useState(false)
   const [savedId,     setSavedId]     = useState(null)
+
+  // ── Cron extraction state ──────────────────────────────────────────────────
+  const [detectedCron,    setDetectedCron]    = useState(null)  // { cron_expression, human_readable }
+  const [extractingCron,  setExtractingCron]  = useState(false)
 
   // ── Load agents, LLMs, tools ───────────────────────────────────────────────
   useEffect(() => {
@@ -177,6 +181,27 @@ export default function WorkflowBuilder() {
     }
   }
 
+  // ── Extract cron from use case via LLM ────────────────────────────────────
+  async function extractCron(text) {
+    if (!text || text.trim().length < 10) return
+    setExtractingCron(true)
+    try {
+      const res = await workflowsApi.extractCron({
+        use_case:      text,
+        llm_config_id: primaryLlm || null,
+      })
+      if (res.data.found) {
+        setDetectedCron({ cron_expression: res.data.cron_expression, human_readable: res.data.human_readable })
+      } else {
+        setDetectedCron(null)
+      }
+    } catch {
+      setDetectedCron(null)
+    } finally {
+      setExtractingCron(false)
+    }
+  }
+
   // ── Save ───────────────────────────────────────────────────────────────────
   async function saveWorkflow() {
     if (!workflowName.trim()) return toast.error('Your Task requires a name 😊')
@@ -189,11 +214,13 @@ export default function WorkflowBuilder() {
       llm_config_id:   primaryLlm || null,
       tool_ids:        selectedTools,
       workflow_config: { nodes, edges: buildEdges() },
+      cron_expression: detectedCron?.cron_expression || null,
     }
     try {
       const res = await workflowsApi.save(body)
       setSavedId(res.data.id)
-      toast.success(`"${workflowName}" saved as a draft task — go to Scheduler to activate it`)
+      const cronMsg = res.data.cron_expression ? ` · schedule: ${res.data.cron_expression}` : ''
+      toast.success(`"${workflowName}" saved — go to Scheduler to activate it${cronMsg}`)
     } catch {
       setSavedId(`demo-${Date.now()}`)
       toast.success(`"${workflowName}" saved (demo mode) — go to Scheduler to activate it`)
@@ -232,8 +259,8 @@ export default function WorkflowBuilder() {
       ══════════════════════════════════════════════════════════════════════ */}
       <div style={{ padding:'28px 32px 0', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexShrink:0 }}>
         <div>
-          <h1 style={{ fontFamily:'Syne,sans-serif', fontSize:22, fontWeight:700 }}>Task Workflow Builder</h1>
-          <p style={{ fontSize:13, color:C.muted, marginTop:4 }}>
+          <h1 style={{ fontFamily:'Syne,sans-serif', fontSize:22, fontWeight:700, color:'var(--text)' }}>Task Workflow Builder</h1>
+          <p style={{ fontSize:13, color:'var(--muted)', marginTop:4 }}>
             Describe the use case for your task, select an agent + LLMs + tools, build the task workflow, then test it
           </p>
         </div>
@@ -246,14 +273,14 @@ export default function WorkflowBuilder() {
             onChange={e => setWorkflowName(e.target.value)}
             placeholder="Task name…"
             style={{
-              background:C.bg3, border:`1px solid ${workflowName?C.accent:C.bd}`,
-              borderRadius:8, padding:'8px 14px', color:C.text,
+              background:'var(--bg3)', border:`1px solid ${workflowName?'var(--accent)':'var(--bd)'}`,
+              borderRadius:8, padding:'8px 14px', color:'var(--text)',
               fontSize:13, fontFamily:'DM Sans,sans-serif', outline:'none', width:220,
             }}
           />
           <Btn onClick={saveWorkflow} disabled={saving}>
             {saving ? <Spinner size={13}/> : <Save size={13}/>}
-            {saving ? 'Saving…' : 'Save Workflow'}
+            {saving ? 'Saving…' : 'Save Task'}
           </Btn>
         </div>
       </div>
@@ -270,19 +297,47 @@ export default function WorkflowBuilder() {
           </div>
           <textarea
             value={useCase}
-            onChange={e => setUseCase(e.target.value)}
+            onChange={e => { setUseCase(e.target.value); setDetectedCron(null) }}
+            onBlur={e => extractCron(e.target.value)}
             placeholder={`Example:\nI want to build a daily research workflow that monitors competitor activity.\nEvery morning it should:\n1. Search the web for news about our top 5 competitors\n2. Summarise the key developments\n3. Highlight any pricing changes, product launches, or press releases\n4. Output a structured briefing I can share with my team`}
             style={{
               width:'100%', minHeight:150,
-              background:C.bg3, border:`1px solid ${useCase.length > 10 ? 'rgba(6,182,212,.3)' : C.bd}`,
+              background:'var(--bg3)', border:`1px solid ${useCase.length > 10 ? 'rgba(6,182,212,.3)' : 'var(--bd)'}`,
               borderRadius:10, padding:'16px 18px',
-              color:C.text, fontSize:13, fontFamily:'DM Sans,sans-serif',
+              color:'var(--text)', fontSize:13, fontFamily:'DM Sans,sans-serif',
               lineHeight:1.8, outline:'none', resize:'vertical',
               transition:'border-color .2s',
             }}
           />
-          <div style={{ display:'flex', justifyContent:'flex-end', marginTop:6 }}>
-            <span style={{ fontSize:11, color: useCase.length > 10 ? C.green : C.muted, fontFamily:'DM Mono,monospace' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:6 }}>
+            <div>
+              {extractingCron && (
+                <span style={{ fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace', display:'flex', alignItems:'center', gap:6 }}>
+                  <Spinner size={11}/> Detecting schedule…
+                </span>
+              )}
+              {detectedCron && !extractingCron && (
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:11, color:'var(--green)', fontFamily:'DM Mono,monospace' }}>
+                    ✓ Schedule detected:
+                  </span>
+                  <span style={{
+                    background:'rgba(34,197,94,.1)', border:'1px solid rgba(34,197,94,.25)',
+                    borderRadius:5, padding:'2px 9px', fontSize:11,
+                    color:'var(--green)', fontFamily:'DM Mono,monospace',
+                  }}>
+                    {detectedCron.cron_expression}
+                  </span>
+                  <span style={{ fontSize:11, color:'var(--muted)' }}>{detectedCron.human_readable}</span>
+                  <button
+                    onClick={() => setDetectedCron(null)}
+                    style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:13, lineHeight:1, padding:0 }}
+                    title="Clear detected schedule"
+                  >×</button>
+                </div>
+              )}
+            </div>
+            <span style={{ fontSize:11, color: useCase.length > 10 ? 'var(--green)' : 'var(--muted)', fontFamily:'DM Mono,monospace' }}>
               {useCase.length} chars {useCase.length > 10 ? '✓' : '— be descriptive'}
             </span>
           </div>
@@ -452,8 +507,8 @@ export default function WorkflowBuilder() {
                   {/* Node card */}
                   <div style={{ minWidth:180, maxWidth:200, flexShrink:0 }}>
                     <div style={{
-                      background:C.bg3,
-                      border:`1px solid ${isOpen ? meta.color+'88' : C.bd}`,
+                      background:'var(--bg3)',
+                      border:`1px solid ${isOpen ? meta.color+'88' : 'var(--bd)'}`,
                       borderRadius:12, overflow:'hidden',
                       transition:'border-color .2s',
                     }}>
@@ -461,7 +516,7 @@ export default function WorkflowBuilder() {
                       <div style={{
                         background: isOpen ? meta.bg : 'transparent',
                         padding:'10px 12px',
-                        borderBottom:`1px solid ${isOpen ? meta.color+'33' : C.bd}`,
+                        borderBottom:`1px solid ${isOpen ? meta.color+'33' : 'var(--bd)'}`,
                         display:'flex', alignItems:'center', gap:8,
                       }}>
                         <div style={{
@@ -480,7 +535,7 @@ export default function WorkflowBuilder() {
                             onChange={e => updateNode(node.id, 'label', e.target.value)}
                             style={{
                               background:'transparent', border:'none', outline:'none',
-                              fontSize:12, fontWeight:600, color:C.text,
+                              fontSize:12, fontWeight:600, color:'var(--text)',
                               width:'100%', fontFamily:'DM Sans,sans-serif',
                             }}
                           />
@@ -489,14 +544,14 @@ export default function WorkflowBuilder() {
 
                       {/* Node body — expanded settings */}
                       {isOpen && (
-                        <div style={{ padding:'10px 12px', borderBottom:`1px solid ${C.bd}` }}>
+                        <div style={{ padding:'10px 12px', borderBottom:`1px solid var(--bd)` }}>
                           {node.type === 'llm' && (
                             <div style={{ marginBottom:8 }}>
                               <div style={{ fontSize:10, color:C.muted, fontFamily:'DM Mono,monospace', marginBottom:4, textTransform:'uppercase', letterSpacing:'.5px' }}>LLM Override</div>
                               <select
                                 value={node.llm_config_id || ''}
                                 onChange={e => updateNode(node.id, 'llm_config_id', e.target.value)}
-                                style={{ width:'100%', background:C.bg, border:`1px solid ${C.bd}`, borderRadius:6, padding:'5px 8px', color:C.text, fontSize:11, fontFamily:'DM Mono,monospace', outline:'none' }}
+                                style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'5px 8px', color:'var(--text)', fontSize:11, fontFamily:'DM Mono,monospace', outline:'none' }}
                               >
                                 <option value="">Use workflow default</option>
                                 {llms.map(l => <option key={l.id} value={String(l.id)}>{l.name}</option>)}
@@ -509,7 +564,7 @@ export default function WorkflowBuilder() {
                               <select
                                 value={node.tool_id || ''}
                                 onChange={e => updateNode(node.id, 'tool_id', e.target.value)}
-                                style={{ width:'100%', background:C.bg, border:`1px solid ${C.bd}`, borderRadius:6, padding:'5px 8px', color:C.text, fontSize:11, fontFamily:'DM Mono,monospace', outline:'none' }}
+                                style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'5px 8px', color:'var(--text)', fontSize:11, fontFamily:'DM Mono,monospace', outline:'none' }}
                               >
                                 <option value="">Any selected tool</option>
                                 {tools.filter(t => selectedTools.includes(String(t.id))).map(t => (
@@ -532,7 +587,7 @@ export default function WorkflowBuilder() {
                                 'What should this step do?'
                               }
                               rows={3}
-                              style={{ width:'100%', background:C.bg, border:`1px solid ${C.bd}`, borderRadius:6, padding:'6px 8px', color:C.text, fontSize:11, fontFamily:'DM Sans,sans-serif', outline:'none', resize:'vertical', lineHeight:1.5 }}
+                              style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'6px 8px', color:'var(--text)', fontSize:11, fontFamily:'DM Sans,sans-serif', outline:'none', resize:'vertical', lineHeight:1.5 }}
                             />
                           </div>
                         </div>
@@ -581,12 +636,12 @@ export default function WorkflowBuilder() {
               onClick={() => addNode('llm')}
               style={{
                 minWidth:52, height:52, borderRadius:10, marginTop:14,
-                background:C.bg3, border:`1px dashed ${C.bd2}`,
+                background:'var(--bg3)', border:'1px dashed var(--bd2)',
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3,
-                cursor:'pointer', color:C.muted, transition:'all .15s', flexShrink:0,
+                cursor:'pointer', color:'var(--muted)', transition:'all .15s', flexShrink:0,
               }}
-              onMouseOver={e => { e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent }}
-              onMouseOut={e  => { e.currentTarget.style.borderColor=C.bd2;    e.currentTarget.style.color=C.muted  }}
+              onMouseOver={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.color='var(--accent)' }}
+              onMouseOut={e  => { e.currentTarget.style.borderColor='var(--bd2)';    e.currentTarget.style.color='var(--muted)'  }}
             >
               <Plus size={14}/>
               <span style={{ fontSize:9, fontFamily:'DM Mono,monospace', letterSpacing:'.5px' }}>ADD</span>
@@ -638,8 +693,8 @@ export default function WorkflowBuilder() {
               placeholder="Enter a test prompt to run through this workflow…"
               disabled={dryRunning}
               style={{
-                flex:1, background:C.bg3, border:`1px solid ${testPrompt ? 'rgba(245,158,11,.4)' : C.bd}`,
-                borderRadius:9, padding:'11px 16px', color:C.text,
+                flex:1, background:'var(--bg3)', border:`1px solid ${testPrompt ? 'rgba(245,158,11,.4)' : 'var(--bd)'}`,
+                borderRadius:9, padding:'11px 16px', color:'var(--text)',
                 fontSize:13, fontFamily:'DM Sans,sans-serif', outline:'none',
               }}
             />
@@ -734,18 +789,20 @@ export default function WorkflowBuilder() {
       }}>
         <div style={{ fontSize:13, color:C.muted }}>
           {workflowName
-            ? <span>Saving as <strong style={{ color:C.text }}>"{workflowName}"</strong></span>
+            ? <span>Saving as <strong style={{ color:C.text }}>"{workflowName}"</strong>
+                {detectedCron && <span style={{ color:'var(--green)', marginLeft:10, fontFamily:'DM Mono,monospace', fontSize:12 }}>· {detectedCron.cron_expression} ({detectedCron.human_readable})</span>}
+              </span>
             : <span style={{ color:C.red }}>↑ Give this workflow a name before saving</span>
           }
           {savedId && <span style={{ color:C.green, marginLeft:12 }}>✓ Saved — activate it in the Scheduler</span>}
         </div>
         <div style={{ display:'flex', gap:10 }}>
-          <Btn variant="ghost" onClick={() => { setNodes(defaultNodes()); setSelectedTools([]); setUseCase(''); setWorkflowName(''); setSavedId(null) }}>
+          <Btn variant="ghost" onClick={() => { setNodes(defaultNodes()); setSelectedTools([]); setUseCase(''); setWorkflowName(''); setSavedId(null); setDetectedCron(null) }}>
             Reset
           </Btn>
           <Btn onClick={saveWorkflow} disabled={saving || !workflowName.trim() || !selectedAgent}>
             {saving ? <Spinner size={13}/> : <Save size={13}/>}
-            {saving ? 'Saving…' : 'Save Workflow'}
+            {saving ? 'Saving…' : 'Save Task'}
           </Btn>
         </div>
       </div>
@@ -761,20 +818,20 @@ export default function WorkflowBuilder() {
 function Section({ label, icon, accent, children, right }) {
   return (
     <div style={{
-      background:'#111318', border:'1px solid #23262f',
+      background:'var(--bg2)', border:'1px solid var(--bd)',
       borderRadius:14, overflow:'hidden',
       animation:'fadeIn .25s ease',
     }}>
       <div style={{
         padding:'13px 20px',
-        borderBottom:'1px solid #23262f',
+        borderBottom:'1px solid var(--bd)',
         display:'flex', alignItems:'center', justifyContent:'space-between',
         background:`${accent}08`,
         borderLeft:`3px solid ${accent}`,
       }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ color:accent }}>{icon}</span>
-          <span style={{ fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:13, color:'#e8eaf0' }}>{label}</span>
+          <span style={{ fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:13, color:'var(--text)' }}>{label}</span>
         </div>
         {right}
       </div>
@@ -791,8 +848,8 @@ function NodeBtn({ onClick, disabled, active, danger, children, title }) {
       title={title}
       style={{
         width:22, height:22, borderRadius:5, border:'none',
-        background: active ? 'rgba(79,142,247,.15)' : danger ? 'rgba(239,68,68,.08)' : 'rgba(107,112,128,.1)',
-        color:      active ? '#4f8ef7'              : danger ? '#ef4444'              : '#6b7080',
+        background: active ? 'rgba(79,142,247,.15)' : danger ? 'rgba(239,68,68,.08)' : 'var(--bg3)',
+        color:      active ? 'var(--accent)'        : danger ? 'var(--red)'           : 'var(--muted)',
         cursor:     disabled ? 'not-allowed'         : 'pointer',
         opacity:    disabled ? .3 : 1,
         display:'flex', alignItems:'center', justifyContent:'center',

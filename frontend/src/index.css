@@ -1,7 +1,8 @@
 /* PATH: frontend/src/index.css */
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
-:root {
+/* Dark mode (default) */
+:root, [data-theme="dark"] {
   --bg:      #0a0b0f;
   --bg2:     #111318;
   --bg3:     #1a1d25;
@@ -17,6 +18,23 @@
   --cyan:    #06b6d4;
 }
 
+/* Light mode */
+[data-theme="light"] {
+  --bg:      #f4f5f7;
+  --bg2:     #ffffff;
+  --bg3:     #eef0f4;
+  --bd:      #dde0e8;
+  --bd2:     #c8ccd6;
+  --text:    #1a1d25;
+  --muted:   #6b7080;
+  --accent:  #2563eb;
+  --accent2: #7c3aed;
+  --green:   #16a34a;
+  --red:     #dc2626;
+  --amber:   #d97706;
+  --cyan:    #0891b2;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
@@ -27,8 +45,6 @@ html, body, #root {
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
-
-/* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 10px; }

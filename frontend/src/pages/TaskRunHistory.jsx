@@ -92,23 +92,23 @@ export default function TaskRunHistory() {
         {/* Summary bar */}
         <div style={{ display:'flex', gap:10, marginBottom:20 }}>
           {[
-            { key:'all',     label:'All Runs',  value:runs.length,                                    color:'#4f8ef7' },
-            { key:'success', label:'Success',   value:runs.filter(r=>r.status==='success').length,    color:'#22c55e' },
-            { key:'failed',  label:'Failed',    value:runs.filter(r=>r.status==='failed').length,     color:'#ef4444' },
-            { key:'running', label:'Running',   value:runs.filter(r=>r.status==='running').length,    color:'#f59e0b' },
+            { key:'all',     label:'All Runs',  value:runs.length,                                    color:'var(--accent)',  rawColor:'#4f8ef7' },
+            { key:'success', label:'Success',   value:runs.filter(r=>r.status==='success').length,    color:'var(--green)',   rawColor:'#22c55e' },
+            { key:'failed',  label:'Failed',    value:runs.filter(r=>r.status==='failed').length,     color:'var(--red)',     rawColor:'#ef4444' },
+            { key:'running', label:'Running',   value:runs.filter(r=>r.status==='running').length,    color:'var(--amber)',   rawColor:'#f59e0b' },
           ].map(s => (
             <button
               key={s.key}
               onClick={() => setFilter(s.key)}
               style={{
-                background: filter===s.key ? `rgba(${s.color==='#4f8ef7'?'79,142,247':s.color==='#22c55e'?'34,197,94':s.color==='#ef4444'?'239,68,68':'245,158,11'},.12)` : '#111318',
-                border: `1px solid ${filter===s.key ? s.color+'66' : '#23262f'}`,
+                background: filter===s.key ? `rgba(${s.color==='var(--accent)'?'79,142,247':s.color==='var(--green)'?'34,197,94':s.color==='var(--red)'?'239,68,68':'245,158,11'},.12)` : 'var(--bg2)',
+                border: `1px solid ${filter===s.key ? s.rawColor+'66' : 'var(--bd)'}`,
                 borderRadius:10, padding:'12px 18px', cursor:'pointer',
                 display:'flex', flexDirection:'column', gap:3, textAlign:'left',
                 transition:'all .15s',
               }}
             >
-              <span style={{ fontSize:10, color:'#6b7080', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace' }}>{s.label}</span>
+              <span style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace' }}>{s.label}</span>
               <span style={{ fontFamily:'Syne,sans-serif', fontSize:24, fontWeight:800, color:s.color }}>{s.value}</span>
             </button>
           ))}
@@ -118,7 +118,7 @@ export default function TaskRunHistory() {
         <Card>
           <CardHeader
             title="Run Log"
-            right={<span style={{ fontSize:12, color:'#6b7080', fontFamily:'DM Mono,monospace' }}>auto-refresh 10s</span>}
+            right={<span style={{ fontSize:12, color:'var(--muted)', fontFamily:'DM Mono,monospace' }}>auto-refresh 10s</span>}
           />
 
           {loading ? (
@@ -135,9 +135,9 @@ export default function TaskRunHistory() {
                     {['','Task Name','Schedule','Run On','Duration','Status','Exit Code','Triggered By',''].map((h,i) => (
                       <th key={i} style={{
                         padding:'10px 14px', textAlign:'left',
-                        fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace',
+                        fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace',
                         textTransform:'uppercase', letterSpacing:'.8px',
-                        borderBottom:'1px solid #23262f', whiteSpace:'nowrap',
+                        borderBottom:'1px solid var(--bd)', whiteSpace:'nowrap',
                       }}>{h}</th>
                     ))}
                   </tr>
@@ -149,41 +149,41 @@ export default function TaskRunHistory() {
                       <React.Fragment key={run.id}>
                         <tr
                           onClick={() => setExpandedId(isExpanded ? null : run.id)}
-                          style={{ cursor:'pointer', borderBottom: isExpanded ? 'none' : '1px solid #23262f' }}
-                          onMouseOver={e => e.currentTarget.style.background='rgba(255,255,255,.02)'}
+                          style={{ cursor:'pointer', borderBottom: isExpanded ? 'none' : '1px solid var(--bd)' }}
+                          onMouseOver={e => e.currentTarget.style.background='rgba(128,128,128,.05)'}
                           onMouseOut={e  => e.currentTarget.style.background=''}
                         >
                           {/* Expand icon */}
                           <td style={{ padding:'12px 8px 12px 14px', width:24 }}>
                             {isExpanded
-                              ? <ChevronDown size={13} color="#4f8ef7"/>
-                              : <ChevronRight size={13} color="#6b7080"/>
+                              ? <ChevronDown size={13} color="var(--accent)"/>
+                              : <ChevronRight size={13} color="var(--muted)"/>
                             }
                           </td>
 
                           {/* Task name */}
-                          <td style={{ padding:'12px 14px', fontWeight:600, fontSize:13, whiteSpace:'nowrap' }}>
+                          <td style={{ padding:'12px 14px', fontWeight:600, fontSize:13, whiteSpace:'nowrap', color:'var(--text)' }}>
                             {run.task_name || run.task_id?.slice(0,8) || '—'}
                           </td>
 
                           {/* Schedule */}
                           <td style={{ padding:'12px 14px' }}>
                             {run.cron_expression ? (
-                              <span style={{ background:'#1a1d25', border:'1px solid #23262f', borderRadius:5, padding:'2px 8px', fontSize:11, color:'#06b6d4', fontFamily:'DM Mono,monospace' }}>
+                              <span style={{ background:'var(--bg3)', border:'1px solid var(--bd)', borderRadius:5, padding:'2px 8px', fontSize:11, color:'var(--cyan)', fontFamily:'DM Mono,monospace' }}>
                                 {run.cron_expression}
                               </span>
                             ) : (
-                              <span style={{ fontSize:11, color:'#6b7080' }}>—</span>
+                              <span style={{ fontSize:11, color:'var(--muted)' }}>—</span>
                             )}
                           </td>
 
                           {/* Run on */}
-                          <td style={{ padding:'12px 14px', fontSize:12, color:'#6b7080', fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>
+                          <td style={{ padding:'12px 14px', fontSize:12, color:'var(--muted)', fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>
                             {fmt(run.started_at)}
                           </td>
 
                           {/* Duration */}
-                          <td style={{ padding:'12px 14px', fontSize:12, fontFamily:'DM Mono,monospace', color:'#e8eaf0' }}>
+                          <td style={{ padding:'12px 14px', fontSize:12, fontFamily:'DM Mono,monospace', color:'var(--text)' }}>
                             {duration(run)}
                           </td>
 
@@ -198,7 +198,7 @@ export default function TaskRunHistory() {
                           <td style={{ padding:'12px 14px' }}>
                             <span style={{
                               fontFamily:'DM Mono,monospace', fontSize:12,
-                              color: run.exit_code === 0 ? '#22c55e' : run.exit_code == null ? '#6b7080' : '#ef4444',
+                              color: run.exit_code === 0 ? 'var(--green)' : run.exit_code == null ? 'var(--muted)' : 'var(--red)',
                             }}>
                               {run.exit_code ?? '—'}
                             </span>
@@ -215,7 +215,7 @@ export default function TaskRunHistory() {
                           <td style={{ padding:'12px 14px' }} onClick={e => e.stopPropagation()}>
                             <button
                               onClick={() => deleteRun(run.id)}
-                              style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:6, borderRadius:6 }}
+                              style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', padding:6, borderRadius:6 }}
                             >
                               <Trash2 size={13}/>
                             </button>
@@ -224,27 +224,27 @@ export default function TaskRunHistory() {
 
                         {/* ── Expanded log viewer ── */}
                         {isExpanded && (
-                          <tr style={{ borderBottom:'1px solid #23262f' }}>
+                          <tr style={{ borderBottom:'1px solid var(--bd)' }}>
                             <td colSpan={9} style={{ padding:'0 14px 16px 40px' }}>
                               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, paddingTop:12 }}>
-                                <Terminal size={13} color="#4f8ef7"/>
-                                <span style={{ fontSize:12, fontWeight:600, fontFamily:'Syne,sans-serif' }}>Container Logs</span>
+                                <Terminal size={13} color="var(--accent)"/>
+                                <span style={{ fontSize:12, fontWeight:600, fontFamily:'Syne,sans-serif', color:'var(--text)' }}>Container Logs</span>
                                 {run.docker_image && (
-                                  <span style={{ fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace' }}>
+                                  <span style={{ fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace' }}>
                                     {run.docker_image}
                                   </span>
                                 )}
-                                <span style={{ marginLeft:'auto', fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace' }}>
+                                <span style={{ marginLeft:'auto', fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace' }}>
                                   finished: {fmt(run.finished_at)}
                                 </span>
                               </div>
 
                               <div style={{
-                                background:'#0a0b0f', border:'1px solid #23262f',
+                                background:'var(--bg)', border:'1px solid var(--bd)',
                                 borderRadius:8, padding:'14px 16px',
                                 fontFamily:'DM Mono,monospace', fontSize:12,
                                 lineHeight:1.8, maxHeight:340, overflowY:'auto',
-                                color:'#8b949e',
+                                color:'var(--muted)',
                               }}>
                                 {run.logs ? (
                                   run.logs.split('\n').map((line, i) => {
@@ -260,7 +260,7 @@ export default function TaskRunHistory() {
                                     )
                                   })
                                 ) : (
-                                  <span style={{ color:'#6b7080' }}>No logs available — expand a completed run to see output</span>
+                                  <span style={{ color:'var(--muted)' }}>No logs available — expand a completed run to see output</span>
                                 )}
                               </div>
 

@@ -49,7 +49,8 @@ def list_runs(
     query = db.query(TaskRun)
     if task_id:
         query = query.filter(TaskRun.task_id == task_id)
-    return query.order_by(TaskRun.started_at.desc()).offset(skip).limit(limit).all()
+    runs = query.order_by(TaskRun.started_at.desc()).offset(skip).limit(limit).all()
+    return [_enrich(run, db) for run in runs]
 
 
 @router.get("/{run_id}", response_model=TaskRunResponse)

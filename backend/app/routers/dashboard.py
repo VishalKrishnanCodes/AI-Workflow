@@ -60,12 +60,21 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
                            TaskRun.status == RunStatus.failed
                        ).scalar() or 0
 
-    recent_runs = (
+    recent_runs_raw = (
         db.query(TaskRun)
         .order_by(TaskRun.started_at.desc())
         .limit(10)
         .all()
     )
+
+    # Join task name onto each run so the dashboard can display it
+    recent_runs = []
+    for run in recent_runs_raw:
+        task = db.query(Task).filter(Task.id == run.task_id).first()
+        run_dict = {c.name: getattr(run, c.name) for c in run.__table__.columns}
+        run_dict["task_name"]       = task.name            if task else None
+        run_dict["cron_expression"] = task.cron_expression if task else None
+        recent_runs.append(run_dict)
 
     return DashboardStats(
         total_agents=total_agents,

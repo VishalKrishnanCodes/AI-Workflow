@@ -44,10 +44,10 @@ export function Btn({ variant = 'primary', size = 'md', onClick, children, disab
     ...style,
   }
   const variants = {
-    primary: { background: '#4f8ef7', color: '#fff' },
-    ghost: { background: 'transparent', color: '#6b7080', border: '1px solid #23262f' },
-    danger: { background: 'rgba(239,68,68,.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,.2)' },
-    success: { background: 'rgba(34,197,94,.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,.2)' },
+    primary: { background: 'var(--accent)', color: '#fff' },
+    ghost: { background: 'transparent', color: 'var(--muted)', border: '1px solid var(--bd)' },
+    danger: { background: 'rgba(239,68,68,.1)', color: 'var(--red)', border: '1px solid rgba(239,68,68,.2)' },
+    success: { background: 'rgba(34,197,94,.1)', color: 'var(--green)', border: '1px solid rgba(34,197,94,.2)' },
   }
   return (
     <button style={{ ...base, ...variants[variant] }} onClick={disabled ? undefined : onClick} disabled={disabled}>
@@ -60,7 +60,7 @@ export function Btn({ variant = 'primary', size = 'md', onClick, children, disab
 export function Card({ children, style = {} }) {
   return (
     <div style={{
-      background: '#111318', border: '1px solid #23262f',
+      background: 'var(--bg2)', border: '1px solid var(--bd)',
       borderRadius: 14, ...style,
     }}>
       {children}
@@ -71,10 +71,10 @@ export function Card({ children, style = {} }) {
 export function CardHeader({ title, right }) {
   return (
     <div style={{
-      padding: '15px 20px', borderBottom: '1px solid #23262f',
+      padding: '15px 20px', borderBottom: '1px solid var(--bd)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     }}>
-      <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 600, fontSize: 14 }}>{title}</span>
+      <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{title}</span>
       {right}
     </div>
   )
@@ -85,8 +85,8 @@ export function PageHeader({ title, subtitle, action }) {
   return (
     <div style={{ padding: '28px 32px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
       <div>
-        <h1 style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 700 }}>{title}</h1>
-        {subtitle && <p style={{ fontSize: 13, color: '#6b7080', marginTop: 4 }}>{subtitle}</p>}
+        <h1 style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{title}</h1>
+        {subtitle && <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -98,7 +98,7 @@ export function Spinner({ size = 18 }) {
   return (
     <span style={{
       display: 'inline-block', width: size, height: size,
-      border: `2px solid #23262f`, borderTopColor: '#4f8ef7',
+      border: `2px solid var(--bd)`, borderTopColor: 'var(--accent)',
       borderRadius: '50%', animation: 'spin .7s linear infinite',
     }} />
   )
@@ -112,7 +112,7 @@ export function Toggle({ checked, onChange }) {
         style={{ opacity: 0, width: 0, height: 0 }} />
       <span style={{
         position: 'absolute', inset: 0, borderRadius: 100,
-        background: checked ? '#4f8ef7' : '#2e3240',
+        background: checked ? 'var(--accent)' : 'var(--bd2)',
         transition: 'background .2s',
       }} />
       <span style={{
@@ -126,8 +126,8 @@ export function Toggle({ checked, onChange }) {
 
 /* ── Input / Select / Textarea ─────────────────────────────────── */
 const inputBase = {
-  width: '100%', background: '#1a1d25', border: '1px solid #23262f',
-  borderRadius: 8, padding: '9px 13px', color: '#e8eaf0',
+  width: '100%', background: 'var(--bg3)', border: '1px solid var(--bd)',
+  borderRadius: 8, padding: '9px 13px', color: 'var(--text)',
   fontSize: 13, fontFamily: 'DM Sans,sans-serif', outline: 'none',
 }
 
@@ -165,13 +165,13 @@ export function Modal({ title, onClose, footer, children, width = 520 }) {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: '#111318', border: '1px solid #23262f', borderRadius: 14, width, maxHeight: '88vh', overflow: 'auto' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #23262f', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: 16 }}>{title}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6b7080', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 14, width, maxHeight: '88vh', overflow: 'auto' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{title}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
         <div style={{ padding: 24 }}>{children}</div>
-        {footer && <div style={{ padding: '16px 24px', borderTop: '1px solid #23262f', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>{footer}</div>}
+        {footer && <div style={{ padding: '16px 24px', borderTop: '1px solid var(--bd)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>{footer}</div>}
       </div>
     </div>
   )

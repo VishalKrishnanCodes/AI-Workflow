@@ -29,6 +29,9 @@ class TaskRunResponse(BaseModel):
     triggered_by:     Optional[str]            = None
     celery_task_id:   Optional[str]            = None
     created_at:       datetime
+    # Enriched fields joined from the tasks table
+    task_name:        Optional[str]            = None
+    cron_expression:  Optional[str]            = None
 
     class Config:
         from_attributes = True

@@ -150,16 +150,16 @@ export default function ToolsManagement() {
         {/* Stats bar */}
         <div style={{ display:'flex', gap:10, marginBottom:20 }}>
           {[
-            { label:'Total Tools',   value: tools.length,  color:'#4f8ef7' },
-            { label:'Enabled',       value: enabled,       color:'#22c55e' },
-            { label:'Disabled',      value: disabled,      color:'#6b7080' },
-            { label:'Built-in',      value: tools.filter(t=>t.tool_type==='builtin').length, color:'#06b6d4' },
+            { label:'Total Tools',   value: tools.length,  color:'var(--accent)' },
+            { label:'Enabled',       value: enabled,       color:'var(--green)' },
+            { label:'Disabled',      value: disabled,      color:'var(--muted)' },
+            { label:'Built-in',      value: tools.filter(t=>t.tool_type==='builtin').length, color:'var(--cyan)' },
           ].map(s => (
             <div key={s.label} style={{
-              background:'#111318', border:'1px solid #23262f', borderRadius:10,
+              background:'var(--bg2)', border:'1px solid var(--bd)', borderRadius:10,
               padding:'12px 18px', display:'flex', flexDirection:'column', gap:3,
             }}>
-              <span style={{ fontSize:10, color:'#6b7080', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace' }}>{s.label}</span>
+              <span style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace' }}>{s.label}</span>
               <span style={{ fontFamily:'Syne,sans-serif', fontSize:24, fontWeight:800, color:s.color }}>{s.value}</span>
             </div>
           ))}
@@ -180,9 +180,9 @@ export default function ToolsManagement() {
                     {['Tool', 'Type', 'Description', 'Endpoint / Code', 'Status', ''].map(h => (
                       <th key={h} style={{
                         padding:'10px 16px', textAlign:'left',
-                        fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace',
+                        fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace',
                         textTransform:'uppercase', letterSpacing:'.8px',
-                        borderBottom:'1px solid #23262f',
+                        borderBottom:'1px solid var(--bd)',
                       }}>{h}</th>
                     ))}
                   </tr>
@@ -192,7 +192,7 @@ export default function ToolsManagement() {
                     const meta = TYPE_META[tool.tool_type] || TYPE_META.custom
                     const Icon = meta.Icon
                     return (
-                      <tr key={tool.id} style={{ borderBottom:'1px solid #23262f' }}>
+                      <tr key={tool.id} style={{ borderBottom:'1px solid var(--bd)' }}>
                         {/* Name */}
                         <td style={{ padding:'14px 16px' }}>
                           <div style={{ display:'flex', alignItems:'center', gap:9 }}>
@@ -215,22 +215,22 @@ export default function ToolsManagement() {
                         </td>
 
                         {/* Description */}
-                        <td style={{ padding:'14px 16px', color:'#6b7080', fontSize:12, maxWidth:220 }}>
+                        <td style={{ padding:'14px 16px', color:'var(--muted)', fontSize:12, maxWidth:220 }}>
                           {tool.description || '—'}
                         </td>
 
                         {/* Endpoint / Code preview */}
                         <td style={{ padding:'14px 16px', maxWidth:180 }}>
                           {tool.endpoint_url ? (
-                            <span style={{ fontSize:11, color:'#06b6d4', fontFamily:'DM Mono,monospace', wordBreak:'break-all' }}>
+                            <span style={{ fontSize:11, color:'var(--cyan)', fontFamily:'DM Mono,monospace', wordBreak:'break-all' }}>
                               {tool.endpoint_url.slice(0,40)}{tool.endpoint_url.length>40?'…':''}
                             </span>
                           ) : tool.source_code ? (
-                            <span style={{ fontSize:11, color:'#7c3aed', fontFamily:'DM Mono,monospace' }}>
+                            <span style={{ fontSize:11, color:'var(--accent2)', fontFamily:'DM Mono,monospace' }}>
                               {tool.source_code.split('\n')[0].slice(0,35)}…
                             </span>
                           ) : (
-                            <span style={{ color:'#6b7080', fontSize:11 }}>—</span>
+                            <span style={{ color:'var(--muted)', fontSize:11 }}>—</span>
                           )}
                         </td>
 
@@ -241,7 +241,7 @@ export default function ToolsManagement() {
                               checked={tool.is_enabled}
                               onChange={() => toggleTool(tool.id)}
                             />
-                            <span style={{ fontSize:12, color: tool.is_enabled ? '#22c55e' : '#6b7080' }}>
+                            <span style={{ fontSize:12, color: tool.is_enabled ? 'var(--green)' : 'var(--muted)' }}>
                               {tool.is_enabled ? 'Enabled' : 'Disabled'}
                             </span>
                           </div>
@@ -251,7 +251,7 @@ export default function ToolsManagement() {
                         <td style={{ padding:'14px 16px', display:'flex', gap:8 }}>
                           <button
                             onClick={() => testTool(tool.id)}
-                            style={{ background:'none', border:'1px solid #23262f', color:'#4f8ef7', cursor:'pointer', padding:'4px 8px', borderRadius:6 }}
+                            style={{ background:'none', border:'1px solid var(--bd)', color:'var(--accent)', cursor:'pointer', padding:'4px 8px', borderRadius:6 }}
                           >
                             Test
                           </button>
@@ -259,13 +259,13 @@ export default function ToolsManagement() {
                             <>
                               <button
                                 onClick={() => openEdit(tool)}
-                                style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:6, borderRadius:6 }}
+                                style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', padding:6, borderRadius:6 }}
                               >
                                 <Edit size={13} />
                               </button>
                               <button
                                 onClick={() => deleteTool(tool.id)}
-                                style={{ background:'none', border:'none', color:'#6b7080', cursor:'pointer', padding:6, borderRadius:6 }}
+                                style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', padding:6, borderRadius:6 }}
                               >
                                 <Trash2 size={13} />
                               </button>

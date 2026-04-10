@@ -45,8 +45,8 @@ export default function Dashboard() {
   return (
     <div>
       <div style={{ padding:'28px 32px 0' }}>
-        <h1 style={{ fontFamily:'Syne,sans-serif', fontSize:22, fontWeight:700 }}>Dashboard</h1>
-        <p style={{ fontSize:13, color:'#6b7080', marginTop:4 }}>Platform overview</p>
+        <h1 style={{ fontFamily:'Syne,sans-serif', fontSize:22, fontWeight:700, color:'var(--text)' }}>Dashboard</h1>
+        <p style={{ fontSize:13, color:'var(--muted)', marginTop:4 }}>Platform overview</p>
       </div>
 
       <div style={{ padding:'20px 32px 32px' }}>
@@ -56,17 +56,17 @@ export default function Dashboard() {
             <div key={c.label}
               onClick={() => nav(c.to)}
               style={{
-                background:'#111318', border:'1px solid #23262f', borderRadius:14,
+                background:'var(--bg2)', border:'1px solid var(--bd)', borderRadius:14,
                 padding:'18px 20px', cursor:'pointer', position:'relative', overflow:'hidden',
                 transition:'border-color .2s',
               }}
-              onMouseOver={e => e.currentTarget.style.borderColor='#2e3240'}
-              onMouseOut={e  => e.currentTarget.style.borderColor='#23262f'}
+              onMouseOver={e => e.currentTarget.style.borderColor='var(--bd2)'}
+              onMouseOut={e  => e.currentTarget.style.borderColor='var(--bd)'}
             >
               <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,${c.color},transparent)` }} />
-              <div style={{ fontSize:10, color:'#6b7080', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace' }}>{c.label}</div>
+              <div style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'1px', fontFamily:'DM Mono,monospace' }}>{c.label}</div>
               <div style={{ fontFamily:'Syne,sans-serif', fontSize:34, fontWeight:800, color:c.color, margin:'8px 0 4px' }}>{c.value}</div>
-              <div style={{ fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace' }}>{c.sub}</div>
+              <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace' }}>{c.sub}</div>
             </div>
           ))}
         </div>
@@ -84,14 +84,14 @@ export default function Dashboard() {
               {(s.recent_runs || []).map(r => (
                 <div key={r.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 18px' }}>
                   <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0,
-                    background: r.status==='success'?'#22c55e':r.status==='failed'?'#ef4444':'#f59e0b' }} />
+                    background: r.status==='success'?'var(--green)':r.status==='failed'?'var(--red)':'var(--amber)' }} />
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:500 }}>{r.task_name || '—'}</div>
-                    <div style={{ fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace', marginTop:1 }}>
+                    <div style={{ fontSize:13, fontWeight:500, color:'var(--text)' }}>{r.task_name || '—'}</div>
+                    <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace', marginTop:1 }}>
                       {r.started_at ? new Date(r.started_at).toLocaleString() : '—'}
                     </div>
                   </div>
-                  <div style={{ fontSize:11, color:'#6b7080', fontFamily:'DM Mono,monospace' }}>{r.duration_seconds}s</div>
+                  <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'DM Mono,monospace' }}>{r.duration_seconds}s</div>
                   <Badge color={STATUS_COLOR[r.status]||'gray'}>{r.status}</Badge>
                 </div>
               ))} 
@@ -113,19 +113,19 @@ export default function Dashboard() {
                   onClick={() => nav(a.to)}
                   style={{
                     display:'flex', alignItems:'center', gap:12,
-                    background:'#1a1d25', border:'1px solid #23262f',
+                    background:'var(--bg3)', border:'1px solid var(--bd)',
                     borderRadius:9, padding:'11px 14px', cursor:'pointer',
                     transition:'border-color .15s',
                   }}
-                  onMouseOver={e => e.currentTarget.style.borderColor='#2e3240'}
-                  onMouseOut={e  => e.currentTarget.style.borderColor='#23262f'}
+                  onMouseOver={e => e.currentTarget.style.borderColor='var(--bd2)'}
+                  onMouseOut={e  => e.currentTarget.style.borderColor='var(--bd)'}
                 >
                   <div style={{ width:8, height:8, borderRadius:'50%', background:a.color, flexShrink:0 }} />
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:500 }}>{a.label}</div>
-                    <div style={{ fontSize:11, color:'#6b7080', marginTop:1 }}>{a.sub}</div>
+                    <div style={{ fontSize:13, fontWeight:500, color:'var(--text)' }}>{a.label}</div>
+                    <div style={{ fontSize:11, color:'var(--muted)', marginTop:1 }}>{a.sub}</div>
                   </div>
-                  <ArrowRight size={13} color="#6b7080"/>
+                  <ArrowRight size={13} color="var(--muted)"/>
                 </div>
               ))}
             </div>

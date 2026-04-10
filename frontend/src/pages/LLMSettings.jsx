@@ -111,19 +111,19 @@ export default function LLMSettings() {
                   <Card key={c.id}>
                     <div style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
                       {/* Provider badge */}
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(79,142,247,.1)', border: '1px solid rgba(79,142,247,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Mono,monospace', fontWeight: 700, fontSize: 11, color: '#4f8ef7', flexShrink: 0 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(79,142,247,.1)', border: '1px solid rgba(79,142,247,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Mono,monospace', fontWeight: 700, fontSize: 11, color: 'var(--accent)', flexShrink: 0 }}>
                         {c.provider.slice(0, 3).toUpperCase()}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                          <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: 15 }}>{c.name}</span>
+                          <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{c.name}</span>
                           {c.is_default && <Badge color="amber">default</Badge>}
                           <Badge color={c.is_active ? 'green' : 'gray'}>{c.is_active ? 'active' : 'inactive'}</Badge>
                         </div>
-                        <div style={{ fontSize: 12, color: '#6b7080', fontFamily: 'DM Mono,monospace' }}>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'DM Mono,monospace' }}>
                           {c.provider} · {c.model} · temp {c.temperature ?? '—'} · max_tokens {c.max_tokens ?? '—'}
                         </div>
-                        {c.api_base_url && <div style={{ fontSize: 11, color: '#06b6d4', fontFamily: 'DM Mono,monospace', marginTop: 2 }}>{c.api_base_url}</div>}
+                        {c.api_base_url && <div style={{ fontSize: 11, color: 'var(--cyan)', fontFamily: 'DM Mono,monospace', marginTop: 2 }}>{c.api_base_url}</div>}
                       </div>
                       {/* Test result icon */}
                       {testState[c.id] === 'ok' && <CheckCircle size={16} color="#22c55e" />}
@@ -159,7 +159,7 @@ export default function LLMSettings() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Toggle checked={form.is_default} onChange={v => setForm(f => ({ ...f, is_default: v }))} />
-            <span style={{ fontSize: 13, color: '#6b7080' }}>Set as default LLM for new agents</span>
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>Set as default LLM for new agents</span>
           </div>
         </Modal>
       )}
